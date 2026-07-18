@@ -1,65 +1,48 @@
 # User Profile Service
 
-A Spring Boot microservice for managing user profiles in the Job Seeker Copilot application.
+Spring Boot service that creates, retrieves and replaces the current user's job
+seeker profile. The current gateway integration passes identity in
+`X-User-Id`; that trust boundary is a P0 issue.
 
-## Features
+> Beta status: not beta-ready. See
+> [the audit](docs/BETA_READINESS_AUDIT.md).
 
-- CRUD operations for user profiles
-- RESTful API endpoints
-- Exception handling with custom exceptions
-- Integration and unit tests
+## Requirements and configuration
 
-## Technology Stack
+- Java 17 and Maven 3.9
+- local or approved production database
 
-- Java 17+
-- Spring Boot
-- Maven
-- JUnit 5
+| Variable | Local default | Purpose |
+|---|---|---|
+| `SERVER_PORT` | `8085` | HTTP port |
+| `PROFILE_DB_URL` | local file H2 | Local-only profile database |
+| `APP_LOG_LEVEL` | `INFO` | Application log level |
 
-## Getting Started
+## API, health and build
 
-### Prerequisites
-
-- Java 17 or higher
-- Maven 3.6+
-
-### Running the Application
+- `GET /api/profiles/me` with trusted user identity
+- `PUT /api/profiles/me` with trusted user identity
+- `/actuator/health`
 
 ```bash
+mvn -B verify
 mvn spring-boot:run
+docker build -t user-profile-service .
 ```
 
-### Running Tests
+H2 console and Hibernate automatic schema update are local-only until
+PROFILE-02 supplies a production profile and migrations.
 
-```bash
-mvn test
-```
+## Branch workflow and troubleshooting
 
-## API Endpoints
+Use `feature/* → develop`; `main` will be introduced as a release branch later.
+For 404, confirm a profile exists for the authenticated account. Do not call
+this service directly with a user-selected ID or place profile PII in logs.
 
-- `GET /api/profiles/{id}` - Get user profile by ID
-- `POST /api/profiles` - Create new user profile
-- `PUT /api/profiles/{id}` - Update user profile
-- `DELETE /api/profiles/{id}` - Delete user profile
+## Licence
 
-## Project Structure
+Copyright © 2026 Bernard McGeever. All rights reserved.
 
-```
-src/
-├── main/
-│   ├── java/com/jobseekercopilot/userprofileservice/
-│   │   ├── controller/
-│   │   ├── exception/
-│   │   ├── model/
-│   │   ├── repository/
-│   │   └── service/
-│   └── resources/
-└── test/
-    └── java/com/jobseekercopilot/userprofileservice/
-        ├── controller/
-        └── service/
-```
-
-## License
-
-MIT
+This repository contains proprietary software belonging to Bernard McGeever.
+It may not be used, copied, modified or distributed without express written
+permission. See [LICENSE](./LICENSE).

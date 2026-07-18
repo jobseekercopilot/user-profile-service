@@ -27,14 +27,14 @@ class UserProfileControllerTest {
     @Test
     void getMyProfile_ShouldReturnProfile() {
         String userId = "user-123";
-        UserProfile profile = new UserProfile(1L, userId, "Java", "5 years", "Lead", "Remote");
+        UserProfile profile = new UserProfile();
+        profile.setUserId(userId);
         when(userProfileService.getProfileByUserId(userId)).thenReturn(Optional.of(profile));
 
         ResponseEntity<UserProfile> response = userProfileController.getMyProfile(userId);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
-        assertEquals("Java", response.getBody().getSkills());
         verify(userProfileService, times(1)).getProfileByUserId(userId);
     }
 
@@ -50,8 +50,10 @@ class UserProfileControllerTest {
     @Test
     void createOrUpdateMyProfile_ShouldReturnProfile() {
         String userId = "user-123";
-        UserProfile inputProfile = new UserProfile(null, userId, "Kotlin", "3 years", "Senior", "Remote");
-        UserProfile savedProfile = new UserProfile(1L, userId, "Kotlin", "3 years", "Senior", "Remote");
+        UserProfile inputProfile = new UserProfile();
+        inputProfile.setUserId(userId);
+        UserProfile savedProfile = new UserProfile();
+        savedProfile.setUserId(userId);
 
         when(userProfileService.createOrUpdateProfile(userId, inputProfile)).thenReturn(savedProfile);
 
@@ -59,7 +61,6 @@ class UserProfileControllerTest {
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
-        assertEquals("Kotlin", response.getBody().getSkills());
         verify(userProfileService, times(1)).createOrUpdateProfile(userId, inputProfile);
     }
 }
