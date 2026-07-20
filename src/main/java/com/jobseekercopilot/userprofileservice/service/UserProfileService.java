@@ -3,7 +3,9 @@ package com.jobseekercopilot.userprofileservice.service;
 import com.jobseekercopilot.userprofileservice.model.UserProfile;
 import com.jobseekercopilot.userprofileservice.model.Qualification;
 import com.jobseekercopilot.userprofileservice.model.Role;
+import com.jobseekercopilot.userprofileservice.exception.ProfileValidationException;
 import com.jobseekercopilot.userprofileservice.repository.UserProfileRepository;
+import com.jobseekercopilot.userprofileservice.validation.ProfileNormalizer;
 import com.jobseekercopilot.userprofileservice.validation.QualificationValidator;
 import com.jobseekercopilot.userprofileservice.validation.RoleValidator;
 import org.slf4j.Logger;
@@ -22,11 +24,17 @@ public class UserProfileService {
     private final UserProfileRepository userProfileRepository;
     private final QualificationValidator qualificationValidator;
     private final RoleValidator roleValidator;
+    private final ProfileNormalizer profileNormalizer;
 
-    public UserProfileService(UserProfileRepository userProfileRepository, QualificationValidator qualificationValidator, RoleValidator roleValidator) {
+    public UserProfileService(
+            UserProfileRepository userProfileRepository,
+            QualificationValidator qualificationValidator,
+            RoleValidator roleValidator,
+            ProfileNormalizer profileNormalizer) {
         this.userProfileRepository = userProfileRepository;
         this.qualificationValidator = qualificationValidator;
         this.roleValidator = roleValidator;
+        this.profileNormalizer = profileNormalizer;
     }
 
     public Optional<UserProfile> getProfileByUserId(String userId) {
@@ -49,9 +57,10 @@ public class UserProfileService {
                 userProfile != null && userProfile.getAspirations() != null,
                 userProfile != null && userProfile.getWorkPreferences() != null);
         if (userProfile == null) {
-            throw new IllegalArgumentException("User profile cannot be null");
+            throw new ProfileValidationException("profile", "NOT_NULL", "User profile cannot be null");
         }
         userProfile.setUserId(userId);
+        profileNormalizer.normalize(userProfile);
 
         if (userProfile.getQualifications() != null) {
             for (Qualification qualification : userProfile.getQualifications()) {
@@ -80,6 +89,7 @@ public class UserProfileService {
                     return saved;
                 })
                 .orElseGet(() -> {
+                    userProfile.setId(null);
                     replaceQualifications(userProfile, userProfile.getQualifications());
                     replaceRoles(userProfile, userProfile.getRoles());
                     UserProfile saved = userProfileRepository.save(userProfile);
