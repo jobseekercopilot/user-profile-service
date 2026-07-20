@@ -5,6 +5,7 @@ import com.jobseekercopilot.userprofileservice.model.Aspirations;
 import com.jobseekercopilot.userprofileservice.model.WorkPreferences;
 import com.jobseekercopilot.userprofileservice.repository.UserProfileRepository;
 import com.jobseekercopilot.userprofileservice.validation.QualificationValidator;
+import com.jobseekercopilot.userprofileservice.validation.ProfileNormalizer;
 import com.jobseekercopilot.userprofileservice.validation.RoleValidator;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,6 +30,9 @@ class UserProfileServiceTest {
 
     @Mock
     private RoleValidator roleValidator;
+
+    @Mock
+    private ProfileNormalizer profileNormalizer;
 
     @InjectMocks
     private UserProfileService userProfileService;

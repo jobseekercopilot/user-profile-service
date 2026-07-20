@@ -12,12 +12,16 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 @RestController
 @RequestMapping("/api/profiles")
 @Tag(name = "User Profiles", description = "Endpoints for managing user profiles")
+@Validated
 public class UserProfileController {
 
     private final UserProfileService userProfileService;
@@ -36,10 +40,11 @@ public class UserProfileController {
             @ApiResponse(responseCode = "404", description = "Profile not found for the given user ID")
     })
     public ResponseEntity<UserProfile> getMyProfile(
-            @Parameter(description = "User ID from authentication header") @RequestHeader(USER_ID_HEADER) String userId) {
-        return userProfileService.getProfileByUserId(userId)
+            @Parameter(description = "User ID from authentication header")
+            @RequestHeader(USER_ID_HEADER) @NotBlank @Size(max = 128) String userId) {
+        return userProfileService.getProfileByUserId(userId.strip())
                 .map(userProfile -> new ResponseEntity<>(userProfile, HttpStatus.OK))
-                .orElseThrow(() -> new ResourceNotFoundException("User profile not found for userId: " + userId));
+                .orElseThrow(() -> new ResourceNotFoundException("User profile not found"));
     }
 
     @PutMapping("/me")
@@ -50,13 +55,10 @@ public class UserProfileController {
             @ApiResponse(responseCode = "400", description = "Invalid profile data")
     })
     public ResponseEntity<UserProfile> createOrUpdateMyProfile(
-            @Parameter(description = "User ID from authentication header") @RequestHeader(USER_ID_HEADER) String userId,
+            @Parameter(description = "User ID from authentication header")
+            @RequestHeader(USER_ID_HEADER) @NotBlank @Size(max = 128) String userId,
             @Valid @RequestBody UserProfile userProfile) {
-        try {
-            UserProfile savedProfile = userProfileService.createOrUpdateProfile(userId, userProfile);
-            return new ResponseEntity<>(savedProfile, HttpStatus.OK);
-        } catch (IllegalArgumentException e) {
-            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
-        }
+        UserProfile savedProfile = userProfileService.createOrUpdateProfile(userId.strip(), userProfile);
+        return new ResponseEntity<>(savedProfile, HttpStatus.OK);
     }
 }
