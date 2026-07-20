@@ -19,3 +19,22 @@ management.
 | [PROFILE-07](https://github.com/jobseekercopilot/user-profile-service/issues/7) | Add repository, security and integration coverage | Tests mock the repository; no real migration, ownership, concurrency, cascade or full-path test exists. | **High / P1 testing:** persistence and cross-user guarantees are unproven. | Add DB integration/contract/security tests and include the complete browser journey. | PROFILE-01–05. | Yes | L |
 | [PROFILE-08](https://github.com/jobseekercopilot/user-profile-service/issues/8) | Add readiness/telemetry and harden container/docs | Health always shows details; no DB readiness/metrics/alerts; Docker skips tests, runs root, has mutable tags; README lists nonexistent CRUD routes and MIT. | **Medium / P1 operational/docs:** failures are hard to diagnose and deployment instructions are wrong. | Add redacted metrics/readiness/runbook, pin/non-root/scan image, run verify, and document actual API/config/proprietary licence. | PROFILE-02. | Yes | M |
 | [PROFILE-09](https://github.com/jobseekercopilot/user-profile-service/issues/9) | Establish reliable dependency vulnerability scanning | CI emits `mvn dependency:tree` but performs no vulnerability analysis; no dependable advisory-feed cache or risk-acceptance workflow is configured. | **High / P1 dependency:** libraries handling personal profile data can carry unreviewed Critical/High vulnerabilities. | Select a proprietary-compatible Maven scanner, configure authenticated/cached advisory data, publish a machine-readable report, fail on unaccepted Critical/High findings and document the risk-acceptance process. | Platform CI and advisory-feed decision. | Yes | M |
+
+## PROFILE-09 remediation evidence
+
+PROFILE-09 remediates the dependency-scanning finding; the service remains not
+beta-ready because the other findings above are unresolved.
+
+- The verified pre-remediation runtime set contained 83 Java packages and 31
+  Critical/High findings (4 Critical and 27 High).
+- Spring Boot was upgraded from 3.2.0 to 4.1.0, springdoc-openapi to 3.0.3,
+  Lombok to 1.18.46, and the Spring Boot 4 REST client module/imports were
+  adopted. The post-remediation scan covered 102 packages with zero Critical
+  or High findings.
+- CI uses pinned Trivy and action revisions, caches advisory data, scans only
+  Maven's resolved runtime dependency directory, uploads the JSON report, and
+  applies a fail-closed policy after report generation.
+- Policy tests prove rejection of Critical findings, malformed or uncovered
+  reports, and missing, invalid, or expired risk-exception metadata.
+- The decision, evidence, local commands, exception rules, and residual risk
+  are recorded in `docs/DEPENDENCY_SECURITY.md`.

@@ -26,9 +26,15 @@ seeker profile. The current gateway integration passes identity in
 
 ```bash
 mvn -B verify
+./scripts/test-dependency-report-policy.sh
 mvn spring-boot:run
 docker build -t user-profile-service .
 ```
+
+CI scans the resolved runtime dependency set with pinned Trivy releases,
+publishes the JSON report, and rejects unaccepted Critical or High findings.
+See [dependency security](docs/DEPENDENCY_SECURITY.md) for local reproduction,
+scanner scope, and the time-bounded exception process.
 
 H2 console and Hibernate automatic schema update are local-only until
 PROFILE-02 supplies a production profile and migrations.
