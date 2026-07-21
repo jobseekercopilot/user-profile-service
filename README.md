@@ -40,6 +40,14 @@ stable field/code pairs, a correlation ID and no rejected PII. Malformed JSON,
 unsupported content types and bodies above the configured limit have separate
 stable error codes. See [the profile input contract](docs/PROFILE_INPUT_CONTRACT.md).
 
+Profile replacement is concurrency-safe per user. PostgreSQL transactions take
+a database-wide advisory lock derived from the trusted user ID before reading or
+writing, so concurrent creates and updates serialize across service instances.
+Repeated identical PUT requests are safe and retain a single profile row. The
+database uniqueness constraint remains a defense-in-depth check; an unexpected
+integrity conflict returns `409 PROFILE_WRITE_CONFLICT` without database details
+and the caller may retry the complete PUT request.
+
 ```bash
 mvn -B verify
 ./scripts/test-dependency-report-policy.sh
