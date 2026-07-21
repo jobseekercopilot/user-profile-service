@@ -6,6 +6,7 @@
 .idea
 .vscode
 data
-target
+target/*
+!target/user-profile-service-1.0.0.jar
 *.db
 *.log

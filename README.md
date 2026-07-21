@@ -29,6 +29,7 @@ seeker profile. The current gateway integration passes identity in
 - `GET /api/profiles/me` with trusted user identity
 - `PUT /api/profiles/me` with trusted user identity
 - `/actuator/health`
+- `/actuator/health/readiness` (application and redacted database status)
 
 The destructive `/internal/system-data/**` fixture API is absent unless the
 explicit `environment-data` profile is active. It also requires exactly one of
@@ -60,12 +61,19 @@ and the caller may retry the complete PUT request.
 ```bash
 mvn -B verify
 ./scripts/test-dependency-report-policy.sh
+./scripts/verify-container.sh
 PROFILE_DB_PASSWORD='<private local value>' mvn spring-boot:run
-docker build -t user-profile-service .
 ```
 
+The release-shaped container workflow runs the complete verification before
+building from the verified JAR, uses a digest-pinned runtime base, runs as fixed UID/GID `10001:10001`, has a
+database-aware readiness check, supports graceful shutdown and is scanned in
+CI. See [service operations](docs/OPERATIONS.md) and the
+[observability contract](docs/OBSERVABILITY.md).
+
 For an isolated local stack, copy `.env.example` to the ignored `.env`, set a
-private database password, then run `docker compose up --build --wait`. The
+private database password, run `mvn -B clean verify`, then run
+`docker compose up --build --wait`. The
 stack starts PostgreSQL and the production profile; `docker compose down`
 retains its named data volume. See [database operations](docs/DATABASE_OPERATIONS.md)
 for migration, backup, restore, rollback, and legacy-H2 handling.
