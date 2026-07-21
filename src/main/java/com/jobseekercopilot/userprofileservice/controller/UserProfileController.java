@@ -3,6 +3,11 @@ package com.jobseekercopilot.userprofileservice.controller;
 import com.jobseekercopilot.userprofileservice.model.UserProfile;
 import com.jobseekercopilot.userprofileservice.service.UserProfileService;
 import com.jobseekercopilot.userprofileservice.exception.ResourceNotFoundException;
+import com.jobseekercopilot.userprofileservice.exception.ProfileWriteConflictException;
+import com.jobseekercopilot.userprofileservice.observability.ProfileTelemetry;
+import com.jobseekercopilot.userprofileservice.observability.ProfileTelemetry.OperationType;
+import com.jobseekercopilot.userprofileservice.observability.ProfileTelemetry.Outcome;
+import com.jobseekercopilot.userprofileservice.observability.ProfileTelemetry.StatusFamily;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -25,9 +30,11 @@ import jakarta.validation.constraints.Size;
 public class UserProfileController {
 
     private final UserProfileService userProfileService;
+    private final ProfileTelemetry telemetry;
 
-    public UserProfileController(UserProfileService userProfileService) {
+    public UserProfileController(UserProfileService userProfileService, ProfileTelemetry telemetry) {
         this.userProfileService = userProfileService;
+        this.telemetry = telemetry;
     }
 
     private static final String USER_ID_HEADER = "X-User-Id";
@@ -42,9 +49,21 @@ public class UserProfileController {
     public ResponseEntity<UserProfile> getMyProfile(
             @Parameter(description = "User ID from authentication header")
             @RequestHeader(USER_ID_HEADER) @NotBlank @Size(max = 128) String userId) {
-        return userProfileService.getProfileByUserId(userId.strip())
-                .map(userProfile -> new ResponseEntity<>(userProfile, HttpStatus.OK))
-                .orElseThrow(() -> new ResourceNotFoundException("User profile not found"));
+        long startedAt = System.nanoTime();
+        try {
+            var profile = userProfileService.getProfileByUserId(userId.strip());
+            if (profile.isPresent()) {
+                telemetry.record(OperationType.READ, Outcome.SUCCESS, StatusFamily.SUCCESS, System.nanoTime() - startedAt);
+                return new ResponseEntity<>(profile.get(), HttpStatus.OK);
+            }
+            telemetry.record(OperationType.READ, Outcome.NOT_FOUND, StatusFamily.CLIENT_ERROR, System.nanoTime() - startedAt);
+            throw new ResourceNotFoundException("User profile not found");
+        } catch (ResourceNotFoundException exception) {
+            throw exception;
+        } catch (RuntimeException exception) {
+            telemetry.record(OperationType.READ, Outcome.INTERNAL_ERROR, StatusFamily.SERVER_ERROR, System.nanoTime() - startedAt);
+            throw exception;
+        }
     }
 
     @PutMapping("/me")
@@ -59,7 +78,20 @@ public class UserProfileController {
             @Parameter(description = "User ID from authentication header")
             @RequestHeader(USER_ID_HEADER) @NotBlank @Size(max = 128) String userId,
             @Valid @RequestBody UserProfile userProfile) {
-        UserProfile savedProfile = userProfileService.createOrUpdateProfile(userId.strip(), userProfile);
-        return new ResponseEntity<>(savedProfile, HttpStatus.OK);
+        long startedAt = System.nanoTime();
+        try {
+            UserProfile savedProfile = userProfileService.createOrUpdateProfile(userId.strip(), userProfile);
+            telemetry.record(OperationType.UPSERT, Outcome.SUCCESS, StatusFamily.SUCCESS, System.nanoTime() - startedAt);
+            return new ResponseEntity<>(savedProfile, HttpStatus.OK);
+        } catch (ProfileWriteConflictException exception) {
+            telemetry.record(OperationType.UPSERT, Outcome.CONFLICT, StatusFamily.CLIENT_ERROR, System.nanoTime() - startedAt);
+            throw exception;
+        } catch (IllegalArgumentException exception) {
+            telemetry.record(OperationType.UPSERT, Outcome.INVALID_REQUEST, StatusFamily.CLIENT_ERROR, System.nanoTime() - startedAt);
+            throw exception;
+        } catch (RuntimeException exception) {
+            telemetry.record(OperationType.UPSERT, Outcome.INTERNAL_ERROR, StatusFamily.SERVER_ERROR, System.nanoTime() - startedAt);
+            throw exception;
+        }
     }
 }

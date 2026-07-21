@@ -26,6 +26,18 @@ services:
       PROFILE_DB_URL: jdbc:postgresql://postgres:5432/user_profile
       PROFILE_DB_USERNAME: user_profile
       PROFILE_DB_PASSWORD: "${PROFILE_DB_PASSWORD:?Set PROFILE_DB_PASSWORD in a private .env file}"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/container-healthcheck"]
+      interval: 10s
+      timeout: 3s
+      start_period: 20s
+      retries: 6
+    stop_grace_period: 25s
 
 volumes:
   profile-postgres-data:

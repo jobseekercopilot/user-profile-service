@@ -45,8 +45,7 @@ public class UserProfileService {
     public Optional<UserProfile> getProfileByUserId(String userId) {
         long startedAt = System.nanoTime();
         Optional<UserProfile> profile = userProfileRepository.findByUserId(userId);
-        log.info("User profile lookup userId={} found={} durationMs={}",
-                userId,
+        log.info("User profile lookup found={} durationMs={}",
                 profile.isPresent(),
                 (System.nanoTime() - startedAt) / 1_000_000);
         return profile;
@@ -54,8 +53,7 @@ public class UserProfileService {
 
     public UserProfile createOrUpdateProfile(String userId, UserProfile userProfile) {
         long startedAt = System.nanoTime();
-        log.info("User profile save started userId={} skillsCount={} qualificationsCount={} rolesCount={} hasAspirations={} hasWorkPreferences={}",
-                userId,
+        log.info("User profile save started skillsCount={} qualificationsCount={} rolesCount={} hasAspirations={} hasWorkPreferences={}",
                 userProfile == null || userProfile.getSkills() == null ? 0 : userProfile.getSkills().size(),
                 userProfile == null || userProfile.getQualifications() == null ? 0 : userProfile.getQualifications().size(),
                 userProfile == null || userProfile.getRoles() == null ? 0 : userProfile.getRoles().size(),
@@ -82,8 +80,7 @@ public class UserProfileService {
         try {
             return profileWriteCoordinator.execute(userId, () -> saveProfile(userId, userProfile, startedAt));
         } catch (DataIntegrityViolationException exception) {
-            log.warn("User profile write conflict userId={} durationMs={}",
-                    userId,
+            log.warn("User profile write conflict durationMs={}",
                     (System.nanoTime() - startedAt) / 1_000_000);
             throw new ProfileWriteConflictException(exception);
         }
@@ -98,9 +95,7 @@ public class UserProfileService {
                     replaceQualifications(existingProfile, userProfile.getQualifications());
                     replaceRoles(existingProfile, userProfile.getRoles());
                     UserProfile saved = userProfileRepository.save(existingProfile);
-                    log.info("User profile updated userId={} profileId={} durationMs={}",
-                            userId,
-                            saved.getId(),
+                    log.info("User profile updated durationMs={}",
                             (System.nanoTime() - startedAt) / 1_000_000);
                     return saved;
                 })
@@ -109,9 +104,7 @@ public class UserProfileService {
                     replaceQualifications(userProfile, userProfile.getQualifications());
                     replaceRoles(userProfile, userProfile.getRoles());
                     UserProfile saved = userProfileRepository.save(userProfile);
-                    log.info("User profile created userId={} profileId={} durationMs={}",
-                            userId,
-                            saved.getId(),
+                    log.info("User profile created durationMs={}",
                             (System.nanoTime() - startedAt) / 1_000_000);
                     return saved;
                 });
