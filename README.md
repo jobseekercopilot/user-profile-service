@@ -20,12 +20,21 @@ seeker profile. The current gateway integration passes identity in
 | `PROFILE_DB_PASSWORD` | none | Required database password; inject as a secret |
 | `APP_LOG_LEVEL` | `INFO` | Application log level |
 | `PROFILE_REQUEST_MAXIMUM_BODY_BYTES` | `65536` | Maximum JSON request body size; must be positive |
+| `ENVIRONMENT_DATA_ENABLED` | `false` | Additional opt-in for non-production fixture management |
+| `ENVIRONMENT_DATA_TOKEN` | none | Independent secret of at least 32 characters for fixture-management requests |
+| `ENVIRONMENT_DATA_ALLOWED_ENVIRONMENTS` | `local,test,demo` | Approved subset of the fixed non-production profile allowlist |
 
 ## API, health and build
 
 - `GET /api/profiles/me` with trusted user identity
 - `PUT /api/profiles/me` with trusted user identity
 - `/actuator/health`
+
+The destructive `/internal/system-data/**` fixture API is absent unless the
+explicit `environment-data` profile is active. It also requires exactly one of
+`local`, `test`, or `demo`, the additional enabled switch, and a valid
+`X-Environment-Data-Token`. Production-like or ambiguous profile combinations
+stop startup. See [environment-data controls](docs/ENVIRONMENT_DATA_CONTROLS.md).
 
 `PUT /api/profiles/me` accepts at most 100 skills, 50 qualifications, 50
 roles, and 50 target roles. Text and nested numeric limits match the gateway
