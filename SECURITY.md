@@ -12,6 +12,12 @@ arrange rotation with the owner.
 The current code is a beta-readiness baseline, not a security certification.
 Known risks and beta blockers are tracked in `docs/BETA_READINESS_AUDIT.md`.
 
+The fixture-management API is not a user API. It is absent by default and must
+never be enabled in a production-like environment. Its independent credential
+must be injected at runtime, sent only in `X-Environment-Data-Token`, and kept
+separate from user, gateway, database, and other service credentials. See
+`docs/ENVIRONMENT_DATA_CONTROLS.md` for the fail-closed profile contract.
+
 CI scans resolved runtime dependencies and fails when its machine-readable
 report contains an unaccepted Critical or High vulnerability. Exceptions must
 be linked to a private repository issue, expire within 30 days, and be removed
