@@ -13,6 +13,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
+@Table(name = "qualification")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -35,7 +36,7 @@ public class Qualification {
     private String issuingBody;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, length = 32)
     @NotNull
     private QualificationStatus status;
 
@@ -43,18 +44,21 @@ public class Qualification {
     @Size(max = 100)
     private String grade;
 
-    @Column(length = 10)
+    @Column(length = 30)
     @Size(max = 30)
     @ProfileDate
     private String dateAchieved;
 
-    @Column(length = 10)
+    @Column(length = 30)
     @Size(max = 30)
     @ProfileDate
     private String expectedCompletion;
 
     @ManyToOne
-    @JoinColumn(name = "user_profile_id", nullable = false)
+    @JoinColumn(
+            name = "user_profile_id",
+            nullable = false,
+            foreignKey = @ForeignKey(name = "fk_qualification_profile"))
     @JsonIgnore
     private UserProfile userProfile;
 

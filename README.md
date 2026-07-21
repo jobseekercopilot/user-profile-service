@@ -10,12 +10,14 @@ seeker profile. The current gateway integration passes identity in
 ## Requirements and configuration
 
 - Java 17 and Maven 3.9
-- local or approved production database
+- PostgreSQL 17
 
 | Variable | Local default | Purpose |
 |---|---|---|
 | `SERVER_PORT` | `8085` | HTTP port |
-| `PROFILE_DB_URL` | local file H2 | Local-only profile database |
+| `PROFILE_DB_URL` | `jdbc:postgresql://localhost:5432/user_profile` locally | PostgreSQL JDBC URL |
+| `PROFILE_DB_USERNAME` | `user_profile` locally | Database user |
+| `PROFILE_DB_PASSWORD` | none | Required database password; inject as a secret |
 | `APP_LOG_LEVEL` | `INFO` | Application log level |
 | `PROFILE_REQUEST_MAXIMUM_BODY_BYTES` | `65536` | Maximum JSON request body size; must be positive |
 
@@ -41,17 +43,23 @@ stable error codes. See [the profile input contract](docs/PROFILE_INPUT_CONTRACT
 ```bash
 mvn -B verify
 ./scripts/test-dependency-report-policy.sh
-mvn spring-boot:run
+PROFILE_DB_PASSWORD='<private local value>' mvn spring-boot:run
 docker build -t user-profile-service .
 ```
+
+For an isolated local stack, copy `.env.example` to the ignored `.env`, set a
+private database password, then run `docker compose up --build --wait`. The
+stack starts PostgreSQL and the production profile; `docker compose down`
+retains its named data volume. See [database operations](docs/DATABASE_OPERATIONS.md)
+for migration, backup, restore, rollback, and legacy-H2 handling.
 
 CI scans the resolved runtime dependency set with pinned Trivy releases,
 publishes the JSON report, and rejects unaccepted Critical or High findings.
 See [dependency security](docs/DEPENDENCY_SECURITY.md) for local reproduction,
 scanner scope, and the time-bounded exception process.
 
-H2 console and Hibernate automatic schema update are local-only until
-PROFILE-02 supplies a production profile and migrations.
+Flyway owns the checked-in schema and Hibernate validates it. H2 is test-only;
+production fails closed unless PostgreSQL and explicit credentials are supplied.
 
 ## Branch workflow and troubleshooting
 

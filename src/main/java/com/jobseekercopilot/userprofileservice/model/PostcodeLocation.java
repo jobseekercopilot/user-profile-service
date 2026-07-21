@@ -19,7 +19,7 @@ import lombok.Setter;
 @AllArgsConstructor
 public class PostcodeLocation {
 
-    @Column(length = 8)
+    @Column(length = 16)
     @Size(max = 16)
     @Pattern(regexp = ProfileConstraints.POSTCODE_PATTERN)
     private String postcode;

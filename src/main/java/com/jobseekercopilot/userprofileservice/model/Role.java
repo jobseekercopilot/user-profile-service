@@ -13,6 +13,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
+@Table(name = "role")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -35,17 +36,17 @@ public class Role {
     private String employer;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @Column(nullable = false, length = 32)
     @NotNull
     private RoleStatus status;
 
-    @Column(nullable = false, length = 10)
+    @Column(nullable = false, length = 30)
     @NotBlank
     @Size(max = 30)
     @ProfileDate
     private String startDate;
 
-    @Column(length = 10)
+    @Column(length = 30)
     @Size(max = 30)
     @ProfileDate
     private String endDate;
@@ -55,7 +56,10 @@ public class Role {
     private String keyResponsibilities;
 
     @ManyToOne
-    @JoinColumn(name = "user_profile_id", nullable = false)
+    @JoinColumn(
+            name = "user_profile_id",
+            nullable = false,
+            foreignKey = @ForeignKey(name = "fk_role_profile"))
     @JsonIgnore
     private UserProfile userProfile;
 
