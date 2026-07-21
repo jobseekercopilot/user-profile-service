@@ -12,6 +12,16 @@ arrange rotation with the owner.
 The current code is a beta-readiness baseline, not a security certification.
 Known risks and beta blockers are tracked in `docs/BETA_READINESS_AUDIT.md`.
 
+Every `/api/profiles/**` request requires an RS256 Bearer access token issued by
+authentication-service. The service obtains public verification keys from the
+configured JWKS URI, requires the configured issuer and audience plus
+`token_type=access`, and derives ownership only from `sub`. `X-User-Id` and body
+identity fields have no authority. Missing or invalid tokens receive one stable
+redacted response; token contents, parser diagnostics and key material must not
+be logged. Retain previous public keys at the issuer through the access-token
+lifetime, clock skew and JWKS cache window during rotation; never distribute an
+authentication private key to this service.
+
 The fixture-management API is not a user API. It is absent by default and must
 never be enabled in a production-like environment. Its independent credential
 must be injected at runtime, sent only in `X-Environment-Data-Token`, and kept

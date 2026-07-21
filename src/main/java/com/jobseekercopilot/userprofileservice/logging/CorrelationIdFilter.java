@@ -22,6 +22,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class CorrelationIdFilter extends OncePerRequestFilter {
 
     public static final String HEADER_NAME = "X-Correlation-Id";
+    public static final String REQUEST_ATTRIBUTE = CorrelationIdFilter.class.getName() + ".correlationId";
     public static final String MDC_KEY = "correlationId";
     public static final String SERVICE_MDC_KEY = "serviceName";
 
@@ -50,6 +51,7 @@ public class CorrelationIdFilter extends OncePerRequestFilter {
         long startedAt = System.nanoTime();
         MDC.put(MDC_KEY, correlationId);
         MDC.put(SERVICE_MDC_KEY, serviceName);
+        request.setAttribute(REQUEST_ATTRIBUTE, correlationId);
         response.setHeader(HEADER_NAME, correlationId);
 
         try {

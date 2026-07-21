@@ -2,6 +2,7 @@ package com.jobseekercopilot.userprofileservice;
 
 import com.jobseekercopilot.userprofileservice.repository.UserProfileRepository;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.resttestclient.TestRestTemplate;
@@ -13,6 +14,8 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 
 import java.util.Map;
 import java.util.stream.IntStream;
@@ -26,6 +29,20 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureTestRestTemplate
 class UserProfileValidationIntegrationTest {
+
+    private static final TestJwksServer JWKS = new TestJwksServer();
+
+    @DynamicPropertySource
+    static void jwtProperties(DynamicPropertyRegistry registry) {
+        registry.add("profile.security.jwk-set-uri", JWKS::jwkSetUri);
+        registry.add("profile.security.issuer", () -> TestJwksServer.ISSUER);
+        registry.add("profile.security.audience", () -> TestJwksServer.AUDIENCE);
+    }
+
+    @AfterAll
+    static void stopJwks() {
+        JWKS.close();
+    }
 
     @Autowired
     private TestRestTemplate restTemplate;
@@ -183,7 +200,7 @@ class UserProfileValidationIntegrationTest {
     private HttpHeaders headers(String userId) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set("X-User-Id", userId);
+        headers.setBearerAuth(JWKS.validToken(userId));
         headers.set("X-Correlation-Id", "profile-03-" + userId);
         return headers;
     }

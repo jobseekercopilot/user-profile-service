@@ -14,6 +14,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.oauth2.jwt.Jwt;
 
 import java.util.Optional;
 
@@ -39,7 +40,7 @@ class UserProfileControllerTest {
         profile.setUserId(userId);
         when(userProfileService.getProfileByUserId(userId)).thenReturn(Optional.of(profile));
 
-        ResponseEntity<UserProfile> response = userProfileController.getMyProfile(userId);
+        ResponseEntity<UserProfile> response = userProfileController.getMyProfile(jwt(userId));
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
@@ -53,7 +54,7 @@ class UserProfileControllerTest {
         when(userProfileService.getProfileByUserId(userId)).thenReturn(Optional.empty());
 
         assertThrows(com.jobseekercopilot.userprofileservice.exception.ResourceNotFoundException.class,
-                () -> userProfileController.getMyProfile(userId));
+                () -> userProfileController.getMyProfile(jwt(userId)));
         verify(telemetry).record(eq(OperationType.READ), eq(Outcome.NOT_FOUND), eq(StatusFamily.CLIENT_ERROR), anyLong());
     }
 
@@ -67,7 +68,7 @@ class UserProfileControllerTest {
 
         when(userProfileService.createOrUpdateProfile(userId, inputProfile)).thenReturn(savedProfile);
 
-        ResponseEntity<UserProfile> response = userProfileController.createOrUpdateMyProfile(userId, inputProfile);
+        ResponseEntity<UserProfile> response = userProfileController.createOrUpdateMyProfile(jwt(userId), inputProfile);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
@@ -82,9 +83,19 @@ class UserProfileControllerTest {
                 .thenThrow(new ProfileWriteConflictException(new IllegalStateException("conflict")));
 
         assertThrows(ProfileWriteConflictException.class,
-                () -> userProfileController.createOrUpdateMyProfile("user-123", profile));
+                () -> userProfileController.createOrUpdateMyProfile(jwt("user-123"), profile));
 
         verify(telemetry).record(
                 eq(OperationType.UPSERT), eq(Outcome.CONFLICT), eq(StatusFamily.CLIENT_ERROR), anyLong());
+    }
+
+    private Jwt jwt(String subject) {
+        java.time.Instant now = java.time.Instant.now();
+        return Jwt.withTokenValue("test-token")
+                .header("alg", "RS256")
+                .subject(subject)
+                .issuedAt(now)
+                .expiresAt(now.plusSeconds(60))
+                .build();
     }
 }

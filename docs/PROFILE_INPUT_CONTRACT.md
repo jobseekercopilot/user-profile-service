@@ -9,7 +9,7 @@ earlier, but callers must not rely on the gateway as the only control.
 | Field | Rule |
 |---|---|
 | request body | at most 65,536 bytes by default |
-| `X-User-Id` | non-blank, at most 128 characters |
+| authenticated `sub` | non-blank access-token subject, validated before controller invocation |
 | skills | at most 100 entries; each non-blank and at most 100 characters |
 | target roles | at most 50 entries; each non-blank and at most 100 characters |
 | qualifications | at most 50 non-null entries |
@@ -35,7 +35,8 @@ Accepted text is stripped and normalized to Unicode NFC before persistence.
 Blank optional values become null, null lists become empty lists, and UK
 postcodes are stored uppercase with canonical inward-code spacing. The service
 ignores request-body `id` and `userId` values and derives ownership from the
-trusted header pending resolution of PROFILE-01.
+validated access-token `sub` claim. `X-User-Id` is not part of the profile API
+contract and cannot override the token owner.
 
 ## Error contract
 

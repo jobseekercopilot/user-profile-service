@@ -44,6 +44,9 @@ docker run --detach --name "$service_name" --network "$network_name" \
     --env PROFILE_DB_URL="jdbc:postgresql://${database_name}:5432/user_profile" \
     --env PROFILE_DB_USERNAME=user_profile \
     --env PROFILE_DB_PASSWORD="$database_password" \
+    --env AUTH_JWKS_URI=http://127.0.0.1:1/.well-known/jwks.json \
+    --env PROFILE_JWT_ISSUER=job-seeker-copilot-authentication \
+    --env PROFILE_JWT_AUDIENCE=job-seeker-copilot-services \
     "$image_name" >/dev/null
 
 attempt=0
