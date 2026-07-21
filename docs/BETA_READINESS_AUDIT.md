@@ -2,16 +2,16 @@
 
 Audit date: 18 July 2026
 
-Status: **Not beta-ready.** PROFILE-03 and PROFILE-09 are remediated, but
-the service trusts a caller-supplied identity header and lacks production data
-management.
+Status: **Not beta-ready.** PROFILE-02, PROFILE-03 and PROFILE-09 are
+remediated, but the service still trusts a caller-supplied identity header and
+lacks approved lifecycle and production security controls.
 
 ## Findings
 
 | ID | Finding | Evidence | Risk and severity | Recommended solution and acceptance criteria | Dependencies | Beta blocker | Effort |
 |---|---|---|---|---|---|---|---|
 | [PROFILE-01](https://github.com/jobseekercopilot/user-profile-service/issues/1) | Prevent forged and cross-user identity | `UserProfileController` treats `X-User-Id` as authenticated identity; there is no security filter or trusted-proxy enforcement. | **Critical / P0 security/privacy:** any direct caller can read or overwrite another user's profile. | Authenticate the caller or cryptographically trust a service identity; derive owner server-side; deny external direct access; test forged headers and cross-user attempts. | Gateway/service identity design. | Yes | L |
-| [PROFILE-02](https://github.com/jobseekercopilot/user-profile-service/issues/2) | Introduce production database configuration and migrations | Defaults are file H2, blank password, console exposed remotely, `ddl-auto=update`; no migrations or restore evidence. | **High / P1 data/reliability:** weak durability and unreproducible schema. | Add separate production profile, supported DB, versioned migrations/constraints, backup/restore and clean-clone migration tests. | Platform database decision. | Yes | L |
+| [PROFILE-02](https://github.com/jobseekercopilot/user-profile-service/issues/2) | Introduce production database configuration and migrations | **Remediated:** PostgreSQL 17, Flyway-owned schema/constraints, fail-closed production configuration and automated backup/restore evidence replace runtime H2 and `ddl-auto=update`. | The evidenced High durability/schema risk is resolved; operational provisioning and PROFILE-04 retention decisions remain external. | Keep migrations append-only; retain empty/previous-schema, constraint and restore tests; exercise the documented restore procedure before beta. | PostgreSQL platform pattern established. | No | L |
 | [PROFILE-03](https://github.com/jobseekercopilot/user-profile-service/issues/3) | Bound and normalise all profile input | **Remediated:** nested Bean Validation, request/list/string/numeric/postcode/date bounds, NFC/canonical normalization, server-owned IDs and stable redacted field errors are enforced and integration tested. | The evidenced High input-abuse and inconsistent-normalisation risk is resolved; PROFILE-01 still owns caller identity trust. | Keep gateway and profile bounds coordinated; retain negative integration and body-limit tests. | Shared limits implemented from the gateway contract. | No | L |
 | [PROFILE-04](https://github.com/jobseekercopilot/user-profile-service/issues/4) | Define deletion, retention, export and audit behaviour | API exposes only GET/PUT; no account deletion, export, retention or auditable change event exists. | **High / P1 privacy:** beta support cannot fulfil lifecycle decisions or investigate changes. | Make explicit non-legal privacy decisions; implement or document deletion/export/retention, audit events and operational procedures; test cascade deletion. | AUTH-08. | Yes | L |
 | [PROFILE-05](https://github.com/jobseekercopilot/user-profile-service/issues/5) | Make upsert concurrency-safe | `findByUserId` followed by save can race; a unique constraint exists but conflicts are not mapped/idempotent. | **Medium / P1 reliability:** concurrent registration/profile saves can fail unpredictably. | Use transactional, database-safe upsert/versioning; map conflicts; test concurrent duplicate requests and retry behaviour. | PROFILE-02. | Yes | M |
@@ -55,3 +55,17 @@ beta-ready because the other findings above are unresolved.
 - Random-port persistence tests cover valid Unicode normalization, null/empty,
   oversize, nested numeric/postcode boundaries, conditional qualification
   rules, malformed JSON, media type and the request-size limit.
+
+## PROFILE-02 remediation evidence
+
+- PostgreSQL 17 is the only runtime database dependency; H2 is test-scoped and
+  the production profile rejects non-PostgreSQL URLs or blank credentials.
+- Flyway V1 creates the complete profile/nested schema with unique-owner,
+  foreign-key, cascade and domain constraints; V2 adds relationship indexes.
+  Hibernate is limited to schema validation in every environment.
+- Disposable PostgreSQL tests prove empty and V1-to-V2 migrations, retention
+  of every nested relation, rejection of duplicate/orphan/out-of-domain data,
+  cascade cleanup, and custom-format backup/restore to a separate database.
+- The production-profile Compose stack applies both migrations, reports healthy,
+  and persists/read-backs a synthetic nested profile. Operations, rollback,
+  restore ownership, secret handling and legacy H2 treatment are documented.

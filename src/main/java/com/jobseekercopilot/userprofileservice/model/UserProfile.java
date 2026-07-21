@@ -14,9 +14,11 @@ import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
+import jakarta.persistence.ForeignKey;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -26,6 +28,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
+@Table(name = "user_profile")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -37,14 +40,17 @@ public class UserProfile {
     @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private Long id;
 
-    @Column(unique = true, nullable = false, length = 128)
+    @Column(name = "user_id", unique = true, nullable = false, length = 128)
     @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private String userId;
 
     @Size(max = ProfileConstraints.MAX_SKILLS)
     @ElementCollection
-    @CollectionTable(name = "user_profile_skills", joinColumns = @JoinColumn(name = "user_profile_id"))
-    @Column(name = "skill", length = 100)
+    @CollectionTable(
+            name = "user_profile_skills",
+            joinColumns = @JoinColumn(name = "user_profile_id"),
+            foreignKey = @ForeignKey(name = "fk_profile_skills_profile"))
+    @Column(name = "skill", nullable = false, length = 100)
     private List<@NotBlank @Size(max = 100) String> skills = new ArrayList<>();
 
     @Valid
