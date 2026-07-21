@@ -26,6 +26,9 @@ services:
       PROFILE_DB_URL: jdbc:postgresql://postgres:5432/user_profile
       PROFILE_DB_USERNAME: user_profile
       PROFILE_DB_PASSWORD: "${PROFILE_DB_PASSWORD:?Set PROFILE_DB_PASSWORD in a private .env file}"
+      AUTH_JWKS_URI: "${AUTH_JWKS_URI:?Set the authentication-service JWKS URI}"
+      PROFILE_JWT_ISSUER: "${PROFILE_JWT_ISSUER:-job-seeker-copilot-authentication}"
+      PROFILE_JWT_AUDIENCE: "${PROFILE_JWT_AUDIENCE:-job-seeker-copilot-services}"
     read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=16m

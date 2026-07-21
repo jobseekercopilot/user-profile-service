@@ -41,7 +41,7 @@ class HealthReadinessIntegrationTest {
 
     @Test
     void metricsEndpointIsNotPubliclyExposed() {
-        assertEquals(HttpStatus.NOT_FOUND,
+        assertEquals(HttpStatus.UNAUTHORIZED,
                 restTemplate.getForEntity("/actuator/metrics", Map.class).getStatusCode());
     }
 }

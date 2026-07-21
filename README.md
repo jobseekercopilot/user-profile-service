@@ -1,8 +1,8 @@
 # User Profile Service
 
-Spring Boot service that creates, retrieves and replaces the current user's job
-seeker profile. The current gateway integration passes identity in
-`X-User-Id`; that trust boundary is a P0 issue.
+Spring Boot OAuth2 resource service that creates, retrieves and replaces the
+current authenticated user's job seeker profile. Ownership is derived only from
+the validated access-token `sub` claim.
 
 > Beta status: not beta-ready. See
 > [the audit](docs/BETA_READINESS_AUDIT.md).
@@ -20,14 +20,17 @@ seeker profile. The current gateway integration passes identity in
 | `PROFILE_DB_PASSWORD` | none | Required database password; inject as a secret |
 | `APP_LOG_LEVEL` | `INFO` | Application log level |
 | `PROFILE_REQUEST_MAXIMUM_BODY_BYTES` | `65536` | Maximum JSON request body size; must be positive |
+| `AUTH_JWKS_URI` | local authentication service | Authentication-service public JWKS endpoint |
+| `PROFILE_JWT_ISSUER` | `job-seeker-copilot-authentication` | Required access-token issuer |
+| `PROFILE_JWT_AUDIENCE` | `job-seeker-copilot-services` | Required access-token audience |
 | `ENVIRONMENT_DATA_ENABLED` | `false` | Additional opt-in for non-production fixture management |
 | `ENVIRONMENT_DATA_TOKEN` | none | Independent secret of at least 32 characters for fixture-management requests |
 | `ENVIRONMENT_DATA_ALLOWED_ENVIRONMENTS` | `local,test,demo` | Approved subset of the fixed non-production profile allowlist |
 
 ## API, health and build
 
-- `GET /api/profiles/me` with trusted user identity
-- `PUT /api/profiles/me` with trusted user identity
+- `GET /api/profiles/me` with a Bearer access token
+- `PUT /api/profiles/me` with a Bearer access token
 - `/actuator/health`
 - `/actuator/health/readiness` (application and redacted database status)
 
@@ -41,7 +44,8 @@ stop startup. See [environment-data controls](docs/ENVIRONMENT_DATA_CONTROLS.md)
 roles, and 50 target roles. Text and nested numeric limits match the gateway
 contract; role and qualification dates use `YYYY-MM` or `YYYY-MM-DD`; commute range is 0–500;
 coordinates use normal latitude/longitude ranges; and postcode values must be a
-UK full postcode or outcode. Accepted text is stripped and Unicode-normalized
+UK full postcode or outcode. Request-body `id`/`userId` and `X-User-Id` cannot
+select ownership. Accepted text is stripped and Unicode-normalized
 to NFC, while postcodes are stored uppercase with canonical spacing. `id` and
 `userId` in JSON are ignored because both are server-owned.
 
@@ -89,8 +93,10 @@ production fails closed unless PostgreSQL and explicit credentials are supplied.
 ## Branch workflow and troubleshooting
 
 Use `feature/* → develop`; `main` will be introduced as a release branch later.
-For 404, confirm a profile exists for the authenticated account. Do not call
-this service directly with a user-selected ID or place profile PII in logs.
+For 401, verify the authentication-service JWKS is reachable and the token has
+the configured RS256 key ID, issuer, audience, lifetime, access type and subject.
+For 404, confirm a profile exists for the authenticated account. Never place
+profile PII, bearer tokens or key material in logs.
 
 ## Licence
 

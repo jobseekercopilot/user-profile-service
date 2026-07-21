@@ -9,7 +9,7 @@ import com.jobseekercopilot.userprofileservice.observability.ProfileTelemetry.Op
 import com.jobseekercopilot.userprofileservice.observability.ProfileTelemetry.Outcome;
 import com.jobseekercopilot.userprofileservice.observability.ProfileTelemetry.StatusFamily;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -17,15 +17,16 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
 
 @RestController
 @RequestMapping("/api/profiles")
 @Tag(name = "User Profiles", description = "Endpoints for managing user profiles")
+@SecurityRequirement(name = "bearerAuth")
 @Validated
 public class UserProfileController {
 
@@ -37,8 +38,6 @@ public class UserProfileController {
         this.telemetry = telemetry;
     }
 
-    private static final String USER_ID_HEADER = "X-User-Id";
-
     @GetMapping("/me")
     @Operation(summary = "Get current user profile", description = "Retrieves the profile for the authenticated user")
     @ApiResponses(value = {
@@ -47,11 +46,11 @@ public class UserProfileController {
             @ApiResponse(responseCode = "404", description = "Profile not found for the given user ID")
     })
     public ResponseEntity<UserProfile> getMyProfile(
-            @Parameter(description = "User ID from authentication header")
-            @RequestHeader(USER_ID_HEADER) @NotBlank @Size(max = 128) String userId) {
+            @AuthenticationPrincipal Jwt accessToken) {
+        String userId = accessToken.getSubject();
         long startedAt = System.nanoTime();
         try {
-            var profile = userProfileService.getProfileByUserId(userId.strip());
+            var profile = userProfileService.getProfileByUserId(userId);
             if (profile.isPresent()) {
                 telemetry.record(OperationType.READ, Outcome.SUCCESS, StatusFamily.SUCCESS, System.nanoTime() - startedAt);
                 return new ResponseEntity<>(profile.get(), HttpStatus.OK);
@@ -75,12 +74,12 @@ public class UserProfileController {
             @ApiResponse(responseCode = "409", description = "Concurrent profile write conflict; retry is safe")
     })
     public ResponseEntity<UserProfile> createOrUpdateMyProfile(
-            @Parameter(description = "User ID from authentication header")
-            @RequestHeader(USER_ID_HEADER) @NotBlank @Size(max = 128) String userId,
+            @AuthenticationPrincipal Jwt accessToken,
             @Valid @RequestBody UserProfile userProfile) {
+        String userId = accessToken.getSubject();
         long startedAt = System.nanoTime();
         try {
-            UserProfile savedProfile = userProfileService.createOrUpdateProfile(userId.strip(), userProfile);
+            UserProfile savedProfile = userProfileService.createOrUpdateProfile(userId, userProfile);
             telemetry.record(OperationType.UPSERT, Outcome.SUCCESS, StatusFamily.SUCCESS, System.nanoTime() - startedAt);
             return new ResponseEntity<>(savedProfile, HttpStatus.OK);
         } catch (ProfileWriteConflictException exception) {

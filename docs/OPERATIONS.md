@@ -19,8 +19,8 @@ unaccepted Critical/High OS and library findings, and proves graceful exit.
 
 ## Startup and shutdown
 
-Production requires `PROFILE_DB_URL`, `PROFILE_DB_USERNAME` and
-`PROFILE_DB_PASSWORD`; database migrations and Hibernate validation complete
+Production requires `PROFILE_DB_URL`, `PROFILE_DB_USERNAME`,
+`PROFILE_DB_PASSWORD` and `AUTH_JWKS_URI`; database migrations and Hibernate validation complete
 before readiness becomes `UP`. The process handles termination gracefully and
 allows up to 20 seconds for in-flight lifecycle work. Container orchestrators
 must allow at least 25 seconds before forcible termination.
@@ -49,6 +49,9 @@ backup and restore procedures.
   backoff. Sustained conflicts require transaction/contention investigation.
 - `400`/`413`/`415`: use the stable error code and field/code pairs. Rejected
   profile values are intentionally absent.
+- `401 PROFILE_AUTHENTICATION_REQUIRED`: verify authentication-service JWKS
+  reachability, key rotation overlap and configured issuer/audience. Do not log
+  or paste the rejected token or decoder exception.
 - Missing metrics/alerts: check the environment-owned private exporter and
   alert routing. `/actuator/metrics` is intentionally not exposed.
 
@@ -59,8 +62,8 @@ exceptions to logs or metric labels.
 ## Ownership and residual risks
 
 Service owners maintain application health, metrics and this runbook. Platform
-owners maintain PostgreSQL, runtime secrets, network policy, resource limits,
-the private metric exporter, dashboards and alert routing. PROFILE-01 remains
-the separate P0 identity-boundary blocker; this operational hardening does not
-claim that direct caller identity is secure or that the complete path is
-beta-ready.
+owners maintain PostgreSQL, authentication-service key rotation/JWKS
+availability, network policy, resource limits, the private metric exporter,
+dashboards and alert routing. Resource-server authentication protects the
+profile boundary; complete gateway/client path validation remains required
+before the overall beta path can be declared ready.

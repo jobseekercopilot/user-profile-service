@@ -3,14 +3,14 @@
 Audit date: 18 July 2026
 
 Status: **Not beta-ready.** PROFILE-02, PROFILE-03, PROFILE-06, PROFILE-08 and PROFILE-09 are
-remediated, but the service still trusts a caller-supplied identity header and
-lacks approved lifecycle and production security controls.
+remediated, but lifecycle and remaining production security controls still need
+completion.
 
 ## Findings
 
 | ID | Finding | Evidence | Risk and severity | Recommended solution and acceptance criteria | Dependencies | Beta blocker | Effort |
 |---|---|---|---|---|---|---|---|
-| [PROFILE-01](https://github.com/jobseekercopilot/user-profile-service/issues/1) | Prevent forged and cross-user identity | `UserProfileController` treats `X-User-Id` as authenticated identity; there is no security filter or trusted-proxy enforcement. | **Critical / P0 security/privacy:** any direct caller can read or overwrite another user's profile. | Authenticate the caller or cryptographically trust a service identity; derive owner server-side; deny external direct access; test forged headers and cross-user attempts. | Gateway/service identity design. | Yes | L |
+| [PROFILE-01](https://github.com/jobseekercopilot/user-profile-service/issues/1) | Prevent forged and cross-user identity | **Remediated:** the profile API is an RS256 resource server using authentication-service JWKS; issuer, audience, expiry, type and signature are validated and ownership comes only from `sub`. | Direct callers, forged headers/signatures and cross-user body IDs cannot select another owner. | Retain negative security tests and coordinate JWKS rotation/cache windows; complete the UMG/client bearer path before beta readiness. | AUTH-13 complete; UMG/client adoption remains. | Yes | L |
 | [PROFILE-02](https://github.com/jobseekercopilot/user-profile-service/issues/2) | Introduce production database configuration and migrations | **Remediated:** PostgreSQL 17, Flyway-owned schema/constraints, fail-closed production configuration and automated backup/restore evidence replace runtime H2 and `ddl-auto=update`. | The evidenced High durability/schema risk is resolved; operational provisioning and PROFILE-04 retention decisions remain external. | Keep migrations append-only; retain empty/previous-schema, constraint and restore tests; exercise the documented restore procedure before beta. | PostgreSQL platform pattern established. | No | L |
 | [PROFILE-03](https://github.com/jobseekercopilot/user-profile-service/issues/3) | Bound and normalise all profile input | **Remediated:** nested Bean Validation, request/list/string/numeric/postcode/date bounds, NFC/canonical normalization, server-owned IDs and stable redacted field errors are enforced and integration tested. | The evidenced High input-abuse and inconsistent-normalisation risk is resolved; PROFILE-01 still owns caller identity trust. | Keep gateway and profile bounds coordinated; retain negative integration and body-limit tests. | Shared limits implemented from the gateway contract. | No | L |
 | [PROFILE-04](https://github.com/jobseekercopilot/user-profile-service/issues/4) | Define deletion, retention, export and audit behaviour | API exposes only GET/PUT; no account deletion, export, retention or auditable change event exists. | **High / P1 privacy:** beta support cannot fulfil lifecycle decisions or investigate changes. | Make explicit non-legal privacy decisions; implement or document deletion/export/retention, audit events and operational procedures; test cascade deletion. | AUTH-08. | Yes | L |
@@ -62,8 +62,8 @@ beta-ready because the other findings above are unresolved.
 - Accepted strings are stripped and Unicode-normalized to NFC. Postcodes use
   uppercase canonical spacing; blank optional values and null lists have stable
   storage representations.
-- Request-body IDs and user IDs are read-only, and the service applies the
-  trusted header value pending the separate PROFILE-01 identity fix.
+- Request-body IDs and user IDs are read-only, and the service derives ownership
+  only from the validated access-token subject.
 - JSON bodies are bounded independently of declared content length. Stable
   validation responses contain only field/code pairs and correlation metadata,
   never rejected profile content or parser details.
