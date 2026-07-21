@@ -3,18 +3,22 @@ package com.jobseekercopilot.userprofileservice.service;
 import com.jobseekercopilot.userprofileservice.model.UserProfile;
 import com.jobseekercopilot.userprofileservice.model.Aspirations;
 import com.jobseekercopilot.userprofileservice.model.WorkPreferences;
+import com.jobseekercopilot.userprofileservice.exception.ProfileWriteConflictException;
 import com.jobseekercopilot.userprofileservice.repository.UserProfileRepository;
 import com.jobseekercopilot.userprofileservice.validation.QualificationValidator;
 import com.jobseekercopilot.userprofileservice.validation.ProfileNormalizer;
 import com.jobseekercopilot.userprofileservice.validation.RoleValidator;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -34,8 +38,19 @@ class UserProfileServiceTest {
     @Mock
     private ProfileNormalizer profileNormalizer;
 
+    @Mock
+    private ProfileWriteCoordinator profileWriteCoordinator;
+
     @InjectMocks
     private UserProfileService userProfileService;
+
+    @BeforeEach
+    void executeWrites() {
+        lenient().when(profileWriteCoordinator.execute(anyString(), any())).thenAnswer(invocation -> {
+            Supplier<?> write = invocation.getArgument(1);
+            return write.get();
+        });
+    }
 
     @Test
     void getProfileByUserId_ShouldReturnProfile() {
@@ -127,6 +142,17 @@ class UserProfileServiceTest {
     void createOrUpdateProfile_ShouldThrow_WhenProfileNull() {
         assertThrows(IllegalArgumentException.class,
                 () -> userProfileService.createOrUpdateProfile("user-123", null));
+        verify(userProfileRepository, never()).save(any());
+    }
+
+    @Test
+    void createOrUpdateProfile_ShouldMapResidualIntegrityConflict() {
+        UserProfile profile = new UserProfile();
+        doThrow(new DataIntegrityViolationException("duplicate"))
+                .when(profileWriteCoordinator).execute(eq("user-123"), any());
+
+        assertThrows(ProfileWriteConflictException.class,
+                () -> userProfileService.createOrUpdateProfile("user-123", profile));
         verify(userProfileRepository, never()).save(any());
     }
 }

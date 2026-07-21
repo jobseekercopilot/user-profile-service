@@ -4,6 +4,7 @@ import com.jobseekercopilot.userprofileservice.model.UserProfile;
 import com.jobseekercopilot.userprofileservice.model.Qualification;
 import com.jobseekercopilot.userprofileservice.model.Role;
 import com.jobseekercopilot.userprofileservice.exception.ProfileValidationException;
+import com.jobseekercopilot.userprofileservice.exception.ProfileWriteConflictException;
 import com.jobseekercopilot.userprofileservice.repository.UserProfileRepository;
 import com.jobseekercopilot.userprofileservice.validation.ProfileNormalizer;
 import com.jobseekercopilot.userprofileservice.validation.QualificationValidator;
@@ -11,6 +12,7 @@ import com.jobseekercopilot.userprofileservice.validation.RoleValidator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,16 +27,19 @@ public class UserProfileService {
     private final QualificationValidator qualificationValidator;
     private final RoleValidator roleValidator;
     private final ProfileNormalizer profileNormalizer;
+    private final ProfileWriteCoordinator profileWriteCoordinator;
 
     public UserProfileService(
             UserProfileRepository userProfileRepository,
             QualificationValidator qualificationValidator,
             RoleValidator roleValidator,
-            ProfileNormalizer profileNormalizer) {
+            ProfileNormalizer profileNormalizer,
+            ProfileWriteCoordinator profileWriteCoordinator) {
         this.userProfileRepository = userProfileRepository;
         this.qualificationValidator = qualificationValidator;
         this.roleValidator = roleValidator;
         this.profileNormalizer = profileNormalizer;
+        this.profileWriteCoordinator = profileWriteCoordinator;
     }
 
     public Optional<UserProfile> getProfileByUserId(String userId) {
@@ -74,6 +79,17 @@ public class UserProfileService {
             }
         }
 
+        try {
+            return profileWriteCoordinator.execute(userId, () -> saveProfile(userId, userProfile, startedAt));
+        } catch (DataIntegrityViolationException exception) {
+            log.warn("User profile write conflict userId={} durationMs={}",
+                    userId,
+                    (System.nanoTime() - startedAt) / 1_000_000);
+            throw new ProfileWriteConflictException(exception);
+        }
+    }
+
+    private UserProfile saveProfile(String userId, UserProfile userProfile, long startedAt) {
         return userProfileRepository.findByUserId(userId)
                 .map(existingProfile -> {
                     existingProfile.setSkills(userProfile.getSkills());

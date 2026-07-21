@@ -52,7 +52,8 @@ public class UserProfileController {
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Profile saved successfully",
                     content = @Content(schema = @Schema(implementation = UserProfile.class))),
-            @ApiResponse(responseCode = "400", description = "Invalid profile data")
+            @ApiResponse(responseCode = "400", description = "Invalid profile data"),
+            @ApiResponse(responseCode = "409", description = "Concurrent profile write conflict; retry is safe")
     })
     public ResponseEntity<UserProfile> createOrUpdateMyProfile(
             @Parameter(description = "User ID from authentication header")

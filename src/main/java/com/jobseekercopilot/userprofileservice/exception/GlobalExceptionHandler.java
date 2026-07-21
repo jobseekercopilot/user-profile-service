@@ -61,6 +61,12 @@ public class GlobalExceptionHandler {
         return failure(HttpStatus.NOT_FOUND, "PROFILE_NOT_FOUND", "User profile was not found.");
     }
 
+    @ExceptionHandler(ProfileWriteConflictException.class)
+    ResponseEntity<ErrorResponse> handleProfileWriteConflict() {
+        return failure(HttpStatus.CONFLICT, "PROFILE_WRITE_CONFLICT",
+                "The profile changed concurrently; retry the request.");
+    }
+
     @ExceptionHandler(HttpMessageNotReadableException.class)
     ResponseEntity<ErrorResponse> handleMalformedJson(HttpMessageNotReadableException exception) {
         if (hasCause(exception, PayloadTooLargeIOException.class)) {
