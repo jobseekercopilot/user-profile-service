@@ -11,6 +11,7 @@ the validated access-token `sub` claim.
 
 - Java 17 and Maven 3.9
 - PostgreSQL 17
+- PostgreSQL JDBC 42.7.12 (explicitly pinned to the reviewed fixed release)
 
 | Variable | Local default | Purpose |
 |---|---|---|
@@ -84,6 +85,8 @@ for migration, backup, restore, rollback, and legacy-H2 handling.
 
 CI scans the resolved runtime dependency set with pinned Trivy releases,
 publishes the JSON report, and rejects unaccepted Critical or High findings.
+The resolved PostgreSQL JDBC version is regression-tested so parent dependency
+management cannot silently reintroduce the remediated SCRAM downgrade flaw.
 See [dependency security](docs/DEPENDENCY_SECURITY.md) for local reproduction,
 scanner scope, and the time-bounded exception process.
 
