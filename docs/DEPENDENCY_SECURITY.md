@@ -21,6 +21,14 @@ environments; those require their own controls.
 
 ## Remediation evidence
 
+On 22 July 2026, the beta-stack image scan identified High-severity
+`CVE-2026-54291` in PostgreSQL JDBC 42.7.11. Issue
+[`#18`](https://github.com/jobseekercopilot/user-profile-service/issues/18)
+pins the resolved runtime driver to the fixed 42.7.12 release and adds a test
+that fails if dependency management silently changes that reviewed version.
+The change does not relax database TLS, PostgreSQL authentication, access-token
+validation, or profile ownership controls.
+
 The initial scan of the Spring Boot 3.2.0 runtime set covered 83 Java packages
 and reported 4 Critical and 27 High findings. The service was upgraded to
 Spring Boot 4.1.0, springdoc-openapi 3.0.3, and Lombok 1.18.46, including the

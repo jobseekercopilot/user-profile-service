@@ -2,7 +2,7 @@
 
 Audit date: 18 July 2026
 
-Status: **Not beta-ready.** PROFILE-02, PROFILE-03, PROFILE-06, PROFILE-08 and PROFILE-09 are
+Status: **Not beta-ready.** PROFILE-02, PROFILE-03, PROFILE-06, PROFILE-08, PROFILE-09 and issue #18 are
 remediated, but lifecycle and remaining production security controls still need
 completion.
 
@@ -19,6 +19,11 @@ completion.
 | [PROFILE-07](https://github.com/jobseekercopilot/user-profile-service/issues/7) | Add repository, security and integration coverage | Tests mock the repository; no real migration, ownership, concurrency, cascade or full-path test exists. | **High / P1 testing:** persistence and cross-user guarantees are unproven. | Add DB integration/contract/security tests and include the complete browser journey. | PROFILE-01–05. | Yes | L |
 | [PROFILE-08](https://github.com/jobseekercopilot/user-profile-service/issues/8) | Add readiness/telemetry and harden container/docs | **Remediated:** redacted DB-aware readiness, bounded profile outcome/latency metrics, PII-free logs, dashboard/alert/runbook contracts, graceful shutdown and a test-enforcing digest-pinned non-root image with a blocking image scan are present. | The repository operational baseline is complete; private exporter and target-environment alert delivery remain platform readiness validation. | Retain the container/runtime and privacy tests; connect the registry and prove alert delivery in the controlled beta environment. | PROFILE-02 complete; monitoring platform owner for environment validation. | Yes | M |
 | [PROFILE-09](https://github.com/jobseekercopilot/user-profile-service/issues/9) | Establish reliable dependency vulnerability scanning | CI emits `mvn dependency:tree` but performs no vulnerability analysis; no dependable advisory-feed cache or risk-acceptance workflow is configured. | **High / P1 dependency:** libraries handling personal profile data can carry unreviewed Critical/High vulnerabilities. | Select a proprietary-compatible Maven scanner, configure authenticated/cached advisory data, publish a machine-readable report, fail on unaccepted Critical/High findings and document the risk-acceptance process. | Platform CI and advisory-feed decision. | Yes | M |
+| [Issue #18](https://github.com/jobseekercopilot/user-profile-service/issues/18) | Upgrade PostgreSQL JDBC to remediate CVE-2026-54291 | **Remediated:** the resolved runtime driver is explicitly pinned to fixed release 42.7.12 and protected by a version regression test. | The beta-stack image's High-severity SCRAM downgrade finding is removed without weakening database or profile security controls. | Retain the resolved-version test and blocking dependency/image scans; review future driver changes explicitly. | Required dependency of E2E-03. | Yes | S |
+
+Issue #18 was initially filed with the identifier `PROFILE-08`, which is already
+used by historical issue #8. Its GitHub issue number is therefore used here to
+avoid making the audit evidence ambiguous.
 
 ## PROFILE-08 remediation evidence
 
