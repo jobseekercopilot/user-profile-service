@@ -35,6 +35,12 @@ the validated access-token `sub` claim.
 - `/actuator/health`
 - `/actuator/health/readiness` (application and redacted database status)
 
+The producer-owned, versioned OpenAPI source contract is
+[`api/openapi.json`](api/openapi.json). Consumers pin both the repository
+revision and the checksum recorded in [`api/SHA256SUMS`](api/SHA256SUMS);
+runtime API documentation remains disabled in production. See
+[`api/README.md`](api/README.md) for the compatibility and update workflow.
+
 The destructive `/internal/system-data/**` fixture API is absent unless the
 explicit `environment-data` profile is active. It also requires exactly one of
 `local`, `test`, or `demo`, the additional enabled switch, and a valid
@@ -64,6 +70,8 @@ integrity conflict returns `409 PROFILE_WRITE_CONFLICT` without database details
 and the caller may retry the complete PUT request.
 
 ```bash
+./scripts/test-api-contract-policy.sh
+./scripts/verify-api-contract.sh
 mvn -B verify
 ./scripts/test-dependency-report-policy.sh
 ./scripts/verify-container.sh
