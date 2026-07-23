@@ -22,6 +22,10 @@ jobs:
           distribution: temurin
           java-version: "17"
           cache: maven
+      - name: Test producer contract policy
+        run: ./scripts/test-api-contract-policy.sh
+      - name: Verify producer contract
+        run: ./scripts/verify-api-contract.sh
       - name: Verify
         run: mvn -B verify
       - name: Test dependency report policy
