@@ -7,6 +7,10 @@ the validated access-token `sub` claim.
 > Beta status: not beta-ready. See
 > [the audit](docs/BETA_READINESS_AUDIT.md).
 
+User Profile's role as the owner of subject-scoped search defaults, rather than
+the search orchestrator, is defined in the Infrastructure
+[Job Search architecture ADR](https://github.com/jobseekercopilot/infrastructure/blob/develop/docs/adr/0001-job-search-architecture-and-ownership.md).
+
 ## Requirements and configuration
 
 - Java 17 and Maven 3.9
