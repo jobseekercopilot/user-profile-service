@@ -20,8 +20,17 @@ To update the contract:
    `SHA256SUMS`.
 4. Run `../scripts/test-api-contract-policy.sh`,
    `../scripts/verify-api-contract.sh` and `mvn -B verify`.
-5. Merge the producer change before updating consumers. Each consumer records
-   the exact producer commit and contract checksum it vendors.
+5. Update `client-release.json` and the client POM together. The package version
+   is `<contract-version>-rev.<first-12-source-revision-characters>`.
+6. For any release after the initial package, record the prior published
+   contract revision as `compatibilityBaseRevision`.
+7. Merge the producer change before publishing or updating consumers.
+
+The Java client is built from `client/pom.xml`. Generated source remains under
+`client/target/`; it is not producer source and must not be committed.
+Publication runs only from the protected `develop` workflow, rejects an
+existing immutable coordinate, and proves that a fresh authenticated Maven
+consumer can resolve and compile the package.
 
 The policy requires both current-user operations, their stable operation IDs,
 Bearer JWT security and the bounded `UserProfile` schema. The checksum makes a

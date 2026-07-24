@@ -26,6 +26,12 @@ jobs:
         run: ./scripts/test-api-contract-policy.sh
       - name: Verify producer contract
         run: ./scripts/verify-api-contract.sh
+      - name: Verify generated-client release policy
+        run: |
+          python3 scripts/verify_client_release.py
+          python3 scripts/test_openapi_breaking.py
+          ./scripts/test-client-generation.sh
+          mvn -B --no-transfer-progress -f api/client/pom.xml clean verify
       - name: Verify
         run: mvn -B verify
       - name: Test dependency report policy

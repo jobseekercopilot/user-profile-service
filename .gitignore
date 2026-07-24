@@ -3,6 +3,7 @@
 !.env.example
 .idea/
 .vscode/
+__pycache__/
 target/
 libs/
 *.class
