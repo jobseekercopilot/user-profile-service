@@ -4,6 +4,7 @@ import com.jobseekercopilot.userprofileservice.model.UserProfile;
 import com.jobseekercopilot.userprofileservice.model.Aspirations;
 import com.jobseekercopilot.userprofileservice.model.WorkPreferences;
 import com.jobseekercopilot.userprofileservice.exception.ProfileWriteConflictException;
+import com.jobseekercopilot.userprofileservice.exception.ProfileRevisionConflictException;
 import com.jobseekercopilot.userprofileservice.repository.UserProfileRepository;
 import com.jobseekercopilot.userprofileservice.validation.QualificationValidator;
 import com.jobseekercopilot.userprofileservice.validation.ProfileNormalizer;
@@ -41,6 +42,12 @@ class UserProfileServiceTest {
     @Mock
     private ProfileWriteCoordinator profileWriteCoordinator;
 
+    @Mock
+    private ProfileDigestCalculator profileDigestCalculator;
+
+    @Mock
+    private LegacyEvidenceMigrator legacyEvidenceMigrator;
+
     @InjectMocks
     private UserProfileService userProfileService;
 
@@ -50,6 +57,8 @@ class UserProfileServiceTest {
             Supplier<?> write = invocation.getArgument(1);
             return write.get();
         });
+        lenient().when(profileDigestCalculator.digest(any(UserProfile.class)))
+                .thenReturn("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
     }
 
     @Test
@@ -136,6 +145,46 @@ class UserProfileServiceTest {
         assertNotNull(result);
         assertEquals(List.of("Kotlin"), result.getSkills());
         verify(userProfileRepository, times(1)).save(existingProfile);
+    }
+
+    @Test
+    void createOrUpdateProfile_ShouldRejectStaleExpectedRevision() {
+        UserProfile existingProfile = new UserProfile();
+        existingProfile.setId(1L);
+        existingProfile.setUserId("user-123");
+        existingProfile.setRevision(3L);
+        when(userProfileRepository.findByUserId("user-123"))
+                .thenReturn(Optional.of(existingProfile));
+
+        assertThrows(ProfileRevisionConflictException.class,
+                () -> userProfileService.createOrUpdateProfile(
+                        "user-123",
+                        new UserProfile(),
+                        2L));
+        verify(userProfileRepository, never()).save(any());
+    }
+
+    @Test
+    void createOrUpdateProfile_ShouldAdvanceRevisionOnlyWhenContentChanges() {
+        UserProfile existingProfile = new UserProfile();
+        existingProfile.setId(1L);
+        existingProfile.setUserId("user-123");
+        existingProfile.setRevision(4L);
+        existingProfile.setRevisionId("existing-revision-id");
+        existingProfile.setContentDigest("a".repeat(64));
+        when(userProfileRepository.findByUserId("user-123"))
+                .thenReturn(Optional.of(existingProfile));
+        when(profileDigestCalculator.digest(existingProfile)).thenReturn("b".repeat(64));
+        when(userProfileRepository.save(existingProfile)).thenReturn(existingProfile);
+
+        UserProfile result = userProfileService.createOrUpdateProfile(
+                "user-123",
+                new UserProfile(),
+                4L);
+
+        assertEquals(5, result.getRevision());
+        assertNotEquals("existing-revision-id", result.getRevisionId());
+        assertEquals("b".repeat(64), result.getContentDigest());
     }
 
     @Test

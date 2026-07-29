@@ -24,6 +24,8 @@ jq -e '
     (.components.securitySchemes.bearerAuth.bearerFormat == "JWT") and
     (.paths["/api/profiles/me"].get.operationId == "getMyProfile") and
     (.paths["/api/profiles/me"].put.operationId == "createOrUpdateMyProfile") and
+    (.paths["/api/evidence"].get.operationId == "listEvidence") and
+    (.paths["/api/evidence/{entryId}"].get.operationId == "getEvidence") and
     (.paths["/api/profiles/me"].get.security | any(has("bearerAuth"))) and
     (.paths["/api/profiles/me"].put.security | any(has("bearerAuth"))) and
     (.paths["/api/profiles/me"].put.requestBody.required == true) and
@@ -35,7 +37,16 @@ jq -e '
     (.components.schemas.WorkPreferences.properties.commuteRange.minimum == 0) and
     (.components.schemas.WorkPreferences.properties.commuteRange.maximum == 500) and
     (.components.schemas.UserProfile.properties.id.readOnly == true) and
-    (.components.schemas.UserProfile.properties.userId.readOnly == true)
+    (.components.schemas.UserProfile.properties.userId.readOnly == true) and
+    (.components.schemas.UserProfile.properties.revision.readOnly == true) and
+    (.components.schemas.UserProfile.properties.revisionId.readOnly == true) and
+    (.components.schemas.UserProfile.properties.contentDigest.readOnly == true) and
+    (.components.schemas.EvidenceCategory.enum | length == 9) and
+    (.components.schemas.EvidenceConfirmationState.enum == ["DRAFT", "USER_CONFIRMED"]) and
+    (.components.schemas.EvidenceVisibility.enum == ["VISIBLE", "HIDDEN"]) and
+    (.components.schemas.EvidenceLifecycle.enum == ["ACTIVE", "ARCHIVED", "SUPERSEDED"]) and
+    (.components.schemas.EvidenceRevision.properties.contentDigest.readOnly == true) and
+    (.components.schemas.EvidenceFact.properties.factId.readOnly == true)
 ' "$contract" >/dev/null
 
 echo "API contract policy: User Profile OpenAPI source is present, intact and compatible"

@@ -35,7 +35,9 @@ the search orchestrator, is defined in the Infrastructure
 ## API, health and build
 
 - `GET /api/profiles/me` with a Bearer access token
-- `PUT /api/profiles/me` with a Bearer access token
+- `PUT /api/profiles/me` with a Bearer access token and optional revision `If-Match`
+- `GET /api/evidence` for the authenticated claimant's versioned Evidence Library
+- `GET /api/evidence/{entryId}` for one owner-scoped evidence entry
 - `/actuator/health`
 - `/actuator/health/readiness` (application and redacted database status)
 
@@ -72,6 +74,25 @@ Repeated identical PUT requests are safe and retain a single profile row. The
 database uniqueness constraint remains a defense-in-depth check; an unexpected
 integrity conflict returns `409 PROFILE_WRITE_CONFLICT` without database details
 and the caller may retry the complete PUT request.
+
+Every profile response now carries a monotonic `revision`, opaque `revisionId`,
+SHA-256 `contentDigest`, and matching `ETag`. Revision-aware consumers send that
+ETag in `If-Match`; stale writes fail with `409 PROFILE_REVISION_CONFLICT`.
+Omitting `If-Match` remains supported during the approved legacy-client
+migration window. An identical normalized update does not create a new
+revision, and omitted preferences remain unset rather than becoming claimant
+declarations.
+
+Flyway V3 adds the bounded Evidence Library schema without removing legacy
+profile roles or qualifications. Startup migrates those legacy rows into
+owner-scoped `DRAFT`, `ACTIVE`, `VISIBLE`, review-required entries. A
+source-content hash and unique migration key make reruns idempotent. Imported
+rows are never silently marked user-confirmed, and the original profile fields
+remain readable by old clients. Evidence categories, confirmation, visibility,
+lifecycle, partial dates, immutable revision metadata and atomic fact IDs are
+all represented separately. Permanent deletion of evidence referenced by
+future documents or applications is intentionally not enabled pending the
+required retention-policy approval.
 
 ```bash
 ./scripts/test-api-contract-policy.sh

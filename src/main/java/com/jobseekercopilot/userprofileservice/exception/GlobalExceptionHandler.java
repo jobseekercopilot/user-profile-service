@@ -68,11 +68,18 @@ public class GlobalExceptionHandler {
                 "The profile changed concurrently; retry the request.");
     }
 
+    @ExceptionHandler(ProfileRevisionConflictException.class)
+    ResponseEntity<ErrorResponse> handleProfileRevisionConflict() {
+        return failure(HttpStatus.CONFLICT, "PROFILE_REVISION_CONFLICT",
+                "The profile has changed; reload it before saving.");
+    }
+
     @ExceptionHandler(HttpMessageNotReadableException.class)
     ResponseEntity<ErrorResponse> handleMalformedJson(HttpMessageNotReadableException exception) {
         if (hasCause(exception, PayloadTooLargeIOException.class)) {
             return failure(HttpStatus.CONTENT_TOO_LARGE, "PAYLOAD_TOO_LARGE", "Request body is too large.");
         }
+        log.warn("Malformed JSON request cause={}", rootCauseName(exception));
         return failure(HttpStatus.BAD_REQUEST, "MALFORMED_JSON", "Request body is not valid JSON.");
     }
 
@@ -123,5 +130,13 @@ public class GlobalExceptionHandler {
             }
         }
         return false;
+    }
+
+    private String rootCauseName(Throwable throwable) {
+        Throwable root = throwable;
+        while (root.getCause() != null) {
+            root = root.getCause();
+        }
+        return root.getClass().getSimpleName();
     }
 }
