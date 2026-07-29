@@ -1,6 +1,7 @@
 package com.jobseekercopilot.userprofileservice.service;
 
 import com.jobseekercopilot.userprofileservice.model.UserProfile;
+import com.jobseekercopilot.userprofileservice.model.ProfilePreferencesUpdate;
 import com.jobseekercopilot.userprofileservice.model.Qualification;
 import com.jobseekercopilot.userprofileservice.model.Role;
 import com.jobseekercopilot.userprofileservice.exception.ProfileValidationException;
@@ -104,6 +105,60 @@ public class UserProfileService {
                     (System.nanoTime() - startedAt) / 1_000_000);
             throw new ProfileWriteConflictException(exception);
         }
+    }
+
+    public UserProfile updatePreferences(
+            String userId,
+            ProfilePreferencesUpdate update,
+            Long expectedRevision) {
+        if (update == null) {
+            throw new ProfileValidationException(
+                    "preferences", "NOT_NULL", "Profile preferences cannot be null");
+        }
+        UserProfile normalized = new UserProfile();
+        normalized.setSkills(update.getSkills());
+        normalized.setAspirations(update.getAspirations());
+        normalized.setWorkPreferences(update.getWorkPreferences());
+        profileNormalizer.normalize(normalized);
+        return profileWriteCoordinator.execute(userId, () -> profileRepositoryUpdatePreferences(
+                userId, normalized, expectedRevision));
+    }
+
+    private UserProfile profileRepositoryUpdatePreferences(
+            String userId,
+            UserProfile preferences,
+            Long expectedRevision) {
+        return userProfileRepository.findByUserId(userId)
+                .map(existing -> {
+                    if (expectedRevision != null && !expectedRevision.equals(existing.getRevision())) {
+                        throw new ProfileRevisionConflictException();
+                    }
+                    String previousDigest = existing.getContentDigest() == null
+                            ? profileDigestCalculator.digest(existing)
+                            : existing.getContentDigest();
+                    existing.setSkills(preferences.getSkills());
+                    existing.setAspirations(preferences.getAspirations());
+                    existing.setWorkPreferences(preferences.getWorkPreferences());
+                    String updatedDigest = profileDigestCalculator.digest(existing);
+                    if (!updatedDigest.equals(previousDigest)) {
+                        existing.setRevision(existing.getRevision() + 1);
+                        existing.setRevisionId(UUID.randomUUID().toString());
+                    }
+                    existing.setContentDigest(updatedDigest);
+                    return userProfileRepository.save(existing);
+                })
+                .orElseGet(() -> {
+                    if (expectedRevision != null && expectedRevision != 0) {
+                        throw new ProfileRevisionConflictException();
+                    }
+                    preferences.setUserId(userId);
+                    preferences.setQualifications(new ArrayList<>());
+                    preferences.setRoles(new ArrayList<>());
+                    preferences.setRevision(1L);
+                    preferences.setRevisionId(UUID.randomUUID().toString());
+                    preferences.setContentDigest(profileDigestCalculator.digest(preferences));
+                    return userProfileRepository.save(preferences);
+                });
     }
 
     private UserProfile saveProfile(

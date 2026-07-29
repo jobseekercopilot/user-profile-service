@@ -29,6 +29,11 @@ public class ProfileDigestCalculator {
             DigestSupport.append(canonical, null);
         } else {
             DigestSupport.append(canonical, preferences.getCommuteRange());
+            appendSorted(canonical, preferences.getEmploymentTypes());
+            appendSorted(canonical, preferences.getWorkingPatterns());
+            appendSorted(canonical, preferences.getWorkplaceArrangements());
+            DigestSupport.append(canonical, preferences.getAvailableFrom());
+            DigestSupport.append(canonical, preferences.getNoticePeriodDays());
             PostcodeLocation location = preferences.getLocation();
             if (location == null) {
                 DigestSupport.append(canonical, null);
@@ -74,5 +79,14 @@ public class ProfileDigestCalculator {
         if (values != null) {
             values.forEach(value -> DigestSupport.append(canonical, value));
         }
+    }
+
+    private void appendSorted(StringBuilder canonical, java.util.Set<? extends Enum<?>> values) {
+        if (values == null) {
+            canonical.append(-1).append('|');
+            return;
+        }
+        List<String> sorted = values.stream().map(Enum::name).sorted().toList();
+        appendList(canonical, sorted);
     }
 }

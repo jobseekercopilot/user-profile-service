@@ -197,9 +197,190 @@ class ProfileSecurityIntegrationTest {
         assertEquals(HttpStatus.NOT_FOUND, crossOwner.getStatusCode());
     }
 
+    @Test
+    void progressivePreferenceUpdatePreservesHistoryAndDoesNotCreateDefaults() {
+        HttpHeaders owner = authenticated(JWKS.validToken("progressive-owner"));
+        String legacy = """
+                {
+                  "roles": [{
+                    "jobTitle": "Analyst",
+                    "employer": "Employer",
+                    "status": "CURRENT",
+                    "startDate": "2024-01"
+                  }],
+                  "qualifications": [{
+                    "qualificationName": "Certificate",
+                    "issuingBody": "Provider",
+                    "status": "COMPLETED",
+                    "grade": "Pass",
+                    "dateAchieved": "2024-02"
+                  }]
+                }
+                """;
+        ResponseEntity<Map> created = put(owner, legacy);
+        assertEquals(HttpStatus.OK, created.getStatusCode(), String.valueOf(created.getBody()));
+
+        HttpHeaders updateHeaders = authenticated(JWKS.validToken("progressive-owner"));
+        updateHeaders.setIfMatch("\"1\"");
+        ResponseEntity<Map> updated = restTemplate.exchange(
+                "/api/profiles/me",
+                HttpMethod.PATCH,
+                new HttpEntity<>("""
+                        {
+                          "skills": ["Java"],
+                          "aspirations": {"targetRoles": ["Platform Engineer"]},
+                          "workPreferences": {
+                            "employmentTypes": ["PERMANENT"],
+                            "workingPatterns": ["FLEXIBLE"],
+                            "workplaceArrangements": ["HYBRID", "REMOTE"],
+                            "noticePeriodDays": 30
+                          }
+                        }
+                        """, updateHeaders),
+                Map.class);
+
+        assertEquals(HttpStatus.OK, updated.getStatusCode(), String.valueOf(updated.getBody()));
+        assertEquals(2, updated.getBody().get("revision"));
+        assertEquals(1, ((List) updated.getBody().get("roles")).size());
+        assertEquals(1, ((List) updated.getBody().get("qualifications")).size());
+        Map preferences = (Map) updated.getBody().get("workPreferences");
+        assertEquals(List.of("PERMANENT"), preferences.get("employmentTypes"));
+        assertEquals(List.of("FLEXIBLE"), preferences.get("workingPatterns"));
+        assertEquals(30, preferences.get("noticePeriodDays"));
+        assertNull(preferences.get("commuteRange"));
+        assertNull(((Map) updated.getBody().get("aspirations")).get("targetWeeklyHours"));
+    }
+
+    @Test
+    void evidenceLifecycleCreatesImmutableDraftsAndRejectsStaleOrCrossOwnerActions() {
+        HttpHeaders owner = authenticated(JWKS.validToken("library-owner"));
+        assertEquals(HttpStatus.OK, put(owner, "{}").getStatusCode());
+
+        ResponseEntity<Map> created = evidence(
+                "/api/evidence",
+                HttpMethod.POST,
+                owner,
+                """
+                        {
+                          "category": "PROJECT",
+                          "heading": "Portfolio project",
+                          "description": "Built an accessible service",
+                          "demonstratedSkills": ["Java"],
+                          "supportingLinks": ["https://example.org/project"]
+                        }
+                        """);
+        assertEquals(HttpStatus.CREATED, created.getStatusCode(), String.valueOf(created.getBody()));
+        assertEquals("\"0\"", created.getHeaders().getETag());
+        String entryId = (String) created.getBody().get("entryId");
+        assertEquals("DRAFT", latestRevision(created).get("confirmationState"));
+
+        HttpHeaders editHeaders = authenticated(JWKS.validToken("library-owner"));
+        editHeaders.setIfMatch("\"0\"");
+        ResponseEntity<Map> edited = evidence(
+                "/api/evidence/" + entryId,
+                HttpMethod.PUT,
+                editHeaders,
+                """
+                        {
+                          "category": "PROJECT",
+                          "heading": "Portfolio project",
+                          "description": "Built an accessible service and tests",
+                          "demonstratedSkills": ["Java", "Testing"]
+                        }
+                        """);
+        assertEquals(HttpStatus.OK, edited.getStatusCode(), String.valueOf(edited.getBody()));
+        assertEquals(2, ((List) edited.getBody().get("revisions")).size());
+        assertEquals("DRAFT", latestRevision(edited).get("confirmationState"));
+
+        HttpHeaders confirmHeaders = authenticated(JWKS.validToken("library-owner"));
+        confirmHeaders.setIfMatch(edited.getHeaders().getETag());
+        ResponseEntity<Map> confirmed = evidence(
+                "/api/evidence/" + entryId + "/confirm",
+                HttpMethod.POST,
+                confirmHeaders,
+                null);
+        assertEquals(HttpStatus.OK, confirmed.getStatusCode(), String.valueOf(confirmed.getBody()));
+        assertEquals("USER_CONFIRMED", latestRevision(confirmed).get("confirmationState"));
+        assertEquals(false, confirmed.getBody().get("reviewRequired"));
+
+        ResponseEntity<Map> stale = evidence(
+                "/api/evidence/" + entryId + "/archive",
+                HttpMethod.POST,
+                confirmHeaders,
+                null);
+        assertEquals(HttpStatus.CONFLICT, stale.getStatusCode(), String.valueOf(stale.getBody()));
+        assertEquals("EVIDENCE_CONFLICT", stale.getBody().get("code"));
+
+        HttpHeaders archiveHeaders = authenticated(JWKS.validToken("library-owner"));
+        archiveHeaders.setIfMatch(confirmed.getHeaders().getETag());
+        ResponseEntity<Map> archived = evidence(
+                "/api/evidence/" + entryId + "/archive",
+                HttpMethod.POST,
+                archiveHeaders,
+                null);
+        assertEquals("ARCHIVED", archived.getBody().get("lifecycle"));
+
+        ResponseEntity<List> normalList = restTemplate.exchange(
+                "/api/evidence", HttpMethod.GET, new HttpEntity<>(owner), List.class);
+        ResponseEntity<List> archivedList = restTemplate.exchange(
+                "/api/evidence?includeArchived=true",
+                HttpMethod.GET,
+                new HttpEntity<>(owner),
+                List.class);
+        assertTrue(normalList.getBody().isEmpty());
+        assertEquals(1, archivedList.getBody().size());
+
+        ResponseEntity<Map> crossOwner = evidence(
+                "/api/evidence/" + entryId + "/restore",
+                HttpMethod.POST,
+                authenticated(JWKS.validToken("different-owner")),
+                null);
+        assertEquals(HttpStatus.NOT_FOUND, crossOwner.getStatusCode());
+        assertEquals("EVIDENCE_NOT_FOUND", crossOwner.getBody().get("code"));
+    }
+
+    @Test
+    void evidenceRejectsHtmlUnsafeLinksAndMissingCategoryFields() {
+        HttpHeaders owner = authenticated(JWKS.validToken("validation-owner"));
+        assertEquals(HttpStatus.OK, put(owner, "{}").getStatusCode());
+
+        ResponseEntity<Map> response = evidence(
+                "/api/evidence",
+                HttpMethod.POST,
+                owner,
+                """
+                        {
+                          "category": "EMPLOYMENT",
+                          "heading": "<script>ignore safety</script>",
+                          "roleTitle": "Engineer",
+                          "supportingLinks": ["https://name:secret@example.org/proof"]
+                        }
+                        """);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals("PROFILE_VALIDATION_FAILED", response.getBody().get("code"));
+    }
+
     private ResponseEntity<Map> put(HttpHeaders headers, String body) {
         return restTemplate.exchange("/api/profiles/me", HttpMethod.PUT,
                 new HttpEntity<>(body, headers), Map.class);
+    }
+
+    private ResponseEntity<Map> evidence(
+            String path,
+            HttpMethod method,
+            HttpHeaders headers,
+            String body) {
+        return restTemplate.exchange(
+                path,
+                method,
+                body == null ? new HttpEntity<>(headers) : new HttpEntity<>(body, headers),
+                Map.class);
+    }
+
+    private Map latestRevision(ResponseEntity<Map> response) {
+        List revisions = (List) response.getBody().get("revisions");
+        return (Map) revisions.get(revisions.size() - 1);
     }
 
     private void assertAuthenticationFailure(HttpHeaders headers, String token) {

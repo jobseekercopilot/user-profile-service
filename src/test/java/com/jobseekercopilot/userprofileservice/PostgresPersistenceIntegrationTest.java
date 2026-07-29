@@ -33,7 +33,7 @@ class PostgresPersistenceIntegrationTest {
 
     @Test
     void migratesEmptyPostgresAndEnforcesOwnershipAndDomainConstraints() throws SQLException {
-        assertEquals(3, flyway().migrate().migrationsExecuted);
+        assertEquals(4, flyway().migrate().migrationsExecuted);
 
         try (Connection connection = connection(); Statement statement = connection.createStatement()) {
             long profileId = insertProfile(statement, "profile-owner");
@@ -60,6 +60,20 @@ class PostgresPersistenceIntegrationTest {
                             ) VALUES (999999, 'Qualification', 'Issuer', 'COMPLETED')
                             """));
             assertEquals("23503", orphan.getSQLState());
+
+            SQLException conflictingAvailability = assertThrows(SQLException.class,
+                    () -> statement.executeUpdate("""
+                            INSERT INTO user_profile (
+                                user_id, available_from, notice_period_days
+                            ) VALUES ('invalid-availability', DATE '2026-08-01', 30)
+                            """));
+            assertEquals("23514", conflictingAvailability.getSQLState());
+
+            statement.executeUpdate("""
+                    INSERT INTO user_profile_workplace_arrangements (
+                        user_profile_id, workplace_arrangement
+                    ) VALUES (%d, 'REMOTE')
+                    """.formatted(profileId));
 
             statement.executeUpdate("DELETE FROM user_profile WHERE id = " + profileId);
             assertEquals(0, count(statement, "user_profile_skills"));
@@ -97,7 +111,7 @@ class PostgresPersistenceIntegrationTest {
                     """.formatted(profileId));
         }
 
-        assertEquals(2, flyway().migrate().migrationsExecuted);
+        assertEquals(3, flyway().migrate().migrationsExecuted);
         try (Connection connection = connection(); Statement statement = connection.createStatement()) {
             assertEquals(1, count(statement, "user_profile"));
             assertEquals(1, count(statement, "user_profile_skills"));
@@ -107,6 +121,9 @@ class PostgresPersistenceIntegrationTest {
             assertEquals(8, indexCount(statement));
             assertEquals(1, profileRevision(statement, "retained-owner"));
             assertEquals(0, count(statement, "evidence_entry"));
+            assertEquals(0, count(statement, "user_profile_employment_types"));
+            assertEquals(0, count(statement, "user_profile_working_patterns"));
+            assertEquals(0, count(statement, "user_profile_workplace_arrangements"));
         }
     }
 

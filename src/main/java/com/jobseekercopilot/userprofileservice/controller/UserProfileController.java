@@ -1,6 +1,7 @@
 package com.jobseekercopilot.userprofileservice.controller;
 
 import com.jobseekercopilot.userprofileservice.model.UserProfile;
+import com.jobseekercopilot.userprofileservice.model.ProfilePreferencesUpdate;
 import com.jobseekercopilot.userprofileservice.service.UserProfileService;
 import com.jobseekercopilot.userprofileservice.exception.ResourceNotFoundException;
 import com.jobseekercopilot.userprofileservice.exception.ProfileWriteConflictException;
@@ -101,6 +102,26 @@ public class UserProfileController {
             telemetry.record(OperationType.UPSERT, Outcome.INTERNAL_ERROR, StatusFamily.SERVER_ERROR, System.nanoTime() - startedAt);
             throw exception;
         }
+    }
+
+    @PatchMapping(value = "/me", consumes = "application/json", produces = "application/json")
+    @Operation(
+            summary = "Update current profile preferences",
+            description = "Updates only current intentions and work preferences while preserving historical profile fields.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Preferences saved"),
+            @ApiResponse(responseCode = "400", description = "Invalid preferences"),
+            @ApiResponse(responseCode = "409", description = "Profile revision conflict")
+    })
+    public ResponseEntity<UserProfile> updateMyPreferences(
+            @AuthenticationPrincipal Jwt accessToken,
+            @RequestHeader(value = HttpHeaders.IF_MATCH, required = false) String ifMatch,
+            @Valid @RequestBody ProfilePreferencesUpdate update) {
+        UserProfile saved = userProfileService.updatePreferences(
+                accessToken.getSubject(), update, parseExpectedRevision(ifMatch));
+        return ResponseEntity.ok()
+                .eTag(Long.toString(saved.getRevision()))
+                .body(saved);
     }
 
     ResponseEntity<UserProfile> createOrUpdateMyProfile(Jwt accessToken, UserProfile userProfile) {

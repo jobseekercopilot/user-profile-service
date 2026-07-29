@@ -36,8 +36,12 @@ the search orchestrator, is defined in the Infrastructure
 
 - `GET /api/profiles/me` with a Bearer access token
 - `PUT /api/profiles/me` with a Bearer access token and optional revision `If-Match`
+- `PATCH /api/profiles/me` to update only current intentions and work preferences
 - `GET /api/evidence` for the authenticated claimant's versioned Evidence Library
+- `POST /api/evidence` to create a claimant-owned draft
 - `GET /api/evidence/{entryId}` for one owner-scoped evidence entry
+- `PUT /api/evidence/{entryId}` to create an edited draft revision
+- `POST /api/evidence/{entryId}/{confirm|hide|show|archive|restore|supersede}` for explicit lifecycle actions
 - `/actuator/health`
 - `/actuator/health/readiness` (application and redacted database status)
 
@@ -93,6 +97,14 @@ lifecycle, partial dates, immutable revision metadata and atomic fact IDs are
 all represented separately. Permanent deletion of evidence referenced by
 future documents or applications is intentionally not enabled pending the
 required retention-policy approval.
+
+Flyway V4 adds claimant-declared employment types, working patterns, workplace
+arrangements and explicit availability without inventing defaults. It also adds
+an optimistic entry version used by Evidence Library `ETag`/`If-Match`.
+Evidence writes are bounded and category-aware, supporting links must be HTTPS,
+and HTML-shaped content is rejected. Editing or confirming creates a new
+immutable revision; visibility and lifecycle remain independent, and archived
+entries are excluded from the default list while remaining recoverable.
 
 ```bash
 ./scripts/test-api-contract-policy.sh
