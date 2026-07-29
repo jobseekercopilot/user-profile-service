@@ -6,7 +6,7 @@ Generated source is written only under `target/` and must never be committed.
 The immutable Maven coordinate is:
 
 ```text
-com.jobseekercopilot.clients:user-profile-service-client:1.1.0-rev.036f0c50c110
+com.jobseekercopilot.clients:user-profile-service-client:1.2.0-rev.045100e4b6fc
 ```
 
 The contract version and first 12 characters of the reviewed contract source
