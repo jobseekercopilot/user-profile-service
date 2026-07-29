@@ -340,6 +340,94 @@ class ProfileSecurityIntegrationTest {
     }
 
     @Test
+    void evidenceSnapshotsArePurposeBoundImmutableAndOwnerScoped() {
+        HttpHeaders owner = authenticated(JWKS.validToken("snapshot-owner"));
+        assertEquals(HttpStatus.OK, put(owner, "{}").getStatusCode());
+
+        ResponseEntity<Map> created = evidence(
+                "/api/evidence",
+                HttpMethod.POST,
+                owner,
+                """
+                        {
+                          "category": "PROJECT",
+                          "heading": "Community accessibility project",
+                          "description": "Built and tested an accessible search prototype",
+                          "achievements": "Delivered a working prototype",
+                          "demonstratedSkills": ["Accessibility", "Testing"]
+                        }
+                        """);
+        HttpHeaders confirmHeaders = authenticated(JWKS.validToken("snapshot-owner"));
+        confirmHeaders.setIfMatch(created.getHeaders().getETag());
+        ResponseEntity<Map> confirmed = evidence(
+                "/api/evidence/" + created.getBody().get("entryId") + "/confirm",
+                HttpMethod.POST,
+                confirmHeaders,
+                null);
+        assertEquals(HttpStatus.OK, confirmed.getStatusCode(), String.valueOf(confirmed.getBody()));
+
+        String entryId = (String) confirmed.getBody().get("entryId");
+        ResponseEntity<Map> snapshot = evidence(
+                "/api/evidence/snapshots",
+                HttpMethod.POST,
+                owner,
+                """
+                        {
+                          "purpose": "CV",
+                          "entryIds": ["%s"],
+                          "sectionOrder": ["PROJECT"]
+                        }
+                        """.formatted(entryId));
+
+        assertEquals(HttpStatus.CREATED, snapshot.getStatusCode(), String.valueOf(snapshot.getBody()));
+        assertEquals("CV", snapshot.getBody().get("purpose"));
+        assertEquals(64, ((String) snapshot.getBody().get("snapshotDigest")).length());
+        Map selection = (Map) ((List) snapshot.getBody().get("selections")).get(0);
+        Map confirmedRevision = latestRevision(confirmed);
+        assertEquals(confirmedRevision.get("revisionId"), selection.get("revisionId"));
+        assertEquals(confirmedRevision.get("contentDigest"), selection.get("contentDigest"));
+        assertFalse(((List) selection.get("facts")).isEmpty());
+        assertEquals(
+                ((Map) ((List) confirmedRevision.get("facts")).get(0)).get("factId"),
+                ((Map) ((List) selection.get("facts")).get(0)).get("factId"));
+
+        String snapshotId = (String) snapshot.getBody().get("snapshotId");
+        ResponseEntity<Map> read = evidence(
+                "/api/evidence/snapshots/" + snapshotId,
+                HttpMethod.GET,
+                owner,
+                null);
+        ResponseEntity<Map> crossOwner = evidence(
+                "/api/evidence/snapshots/" + snapshotId,
+                HttpMethod.GET,
+                authenticated(JWKS.validToken("other-owner")),
+                null);
+        assertEquals(snapshot.getBody().get("snapshotDigest"), read.getBody().get("snapshotDigest"));
+        assertEquals(HttpStatus.NOT_FOUND, crossOwner.getStatusCode());
+
+        HttpHeaders archiveHeaders = authenticated(JWKS.validToken("snapshot-owner"));
+        archiveHeaders.setIfMatch(confirmed.getHeaders().getETag());
+        assertEquals(HttpStatus.OK, evidence(
+                "/api/evidence/" + entryId + "/archive",
+                HttpMethod.POST,
+                archiveHeaders,
+                null).getStatusCode());
+        ResponseEntity<Map> ineligible = evidence(
+                "/api/evidence/snapshots",
+                HttpMethod.POST,
+                owner,
+                """
+                        {
+                          "purpose": "COVER_LETTER",
+                          "entryIds": ["%s"],
+                          "sectionOrder": ["PROJECT"]
+                        }
+                        """.formatted(entryId));
+        assertEquals(HttpStatus.CONFLICT, ineligible.getStatusCode());
+        assertEquals("EVIDENCE_CONFLICT", ineligible.getBody().get("code"));
+    }
+
+    @Test
     void evidenceRejectsHtmlUnsafeLinksAndMissingCategoryFields() {
         HttpHeaders owner = authenticated(JWKS.validToken("validation-owner"));
         assertEquals(HttpStatus.OK, put(owner, "{}").getStatusCode());

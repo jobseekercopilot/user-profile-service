@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Job Seeker Copilot User Profile API",
-    "version": "1.2.0",
-    "description": "Producer-owned contract for authenticated current-user profile and versioned evidence operations."
+    "version": "1.3.0",
+    "description": "Producer-owned contract for authenticated current-user profile, versioned evidence and immutable purpose-bound snapshot operations."
   },
   "tags": [
     {
@@ -13,6 +13,10 @@
     {
       "name": "Evidence Library",
       "description": "Authenticated owner-scoped reusable evidence operations"
+    },
+    {
+      "name": "Evidence snapshots",
+      "description": "Authenticated owner-scoped immutable evidence selections"
     }
   ],
   "paths": {
@@ -487,6 +491,68 @@
           "401": {"description": "Missing or invalid access token"},
           "404": {"description": "Entry does not exist or is owned by another claimant"},
           "409": {"description": "Stale version or lifecycle conflict"}
+        }
+      }
+    },
+    "/api/evidence/snapshots": {
+      "post": {
+        "tags": ["Evidence snapshots"],
+        "operationId": "createEvidenceSnapshot",
+        "summary": "Create an immutable purpose-bound snapshot from explicitly selected evidence",
+        "description": "The server derives the owner and resolves only the latest visible, active, user-confirmed revision for each ordered server-issued entry ID. Evidence is never included automatically.",
+        "security": [{"bearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/EvidenceSnapshotRequest"}
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Immutable evidence snapshot created",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/EvidenceSnapshot"}
+              }
+            }
+          },
+          "400": {"description": "Snapshot request validation failed"},
+          "401": {"description": "Missing or invalid access token"},
+          "404": {"description": "Profile or selected entry does not exist for the authenticated claimant"},
+          "409": {"description": "Duplicate, stale, draft, hidden, review-required, archived or superseded evidence"}
+        }
+      }
+    },
+    "/api/evidence/snapshots/{snapshotId}": {
+      "get": {
+        "tags": ["Evidence snapshots"],
+        "operationId": "getEvidenceSnapshot",
+        "summary": "Get an immutable evidence snapshot owned by the authenticated claimant",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "snapshotId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owned immutable evidence snapshot",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/EvidenceSnapshot"}
+              }
+            }
+          },
+          "401": {"description": "Missing or invalid access token"},
+          "404": {"description": "Snapshot does not exist or is owned by another claimant"}
         }
       }
     }
@@ -1189,6 +1255,185 @@
             "format": "uuid"
           }
         }
+      },
+      "EvidenceSnapshotRequest": {
+        "type": "object",
+        "required": [
+          "purpose",
+          "entryIds",
+          "sectionOrder"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "purpose": {
+            "$ref": "#/components/schemas/EvidenceSnapshotPurpose"
+          },
+          "entryIds": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 50,
+            "uniqueItems": true,
+            "description": "Ordered server-issued evidence entry IDs; fact or revision IDs are not accepted from the browser",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "sectionOrder": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 9,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/EvidenceCategory"
+            }
+          }
+        }
+      },
+      "EvidenceSnapshot": {
+        "type": "object",
+        "required": [
+          "snapshotId",
+          "purpose",
+          "profileRevisionId",
+          "profileContentDigest",
+          "sectionOrder",
+          "selections",
+          "snapshotDigest",
+          "createdAt"
+        ],
+        "properties": {
+          "snapshotId": {
+            "type": "string",
+            "format": "uuid",
+            "readOnly": true
+          },
+          "purpose": {
+            "$ref": "#/components/schemas/EvidenceSnapshotPurpose"
+          },
+          "profileRevisionId": {
+            "type": "string",
+            "format": "uuid",
+            "readOnly": true
+          },
+          "profileContentDigest": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "readOnly": true
+          },
+          "sectionOrder": {
+            "type": "array",
+            "maxItems": 9,
+            "items": {
+              "$ref": "#/components/schemas/EvidenceCategory"
+            },
+            "readOnly": true
+          },
+          "selections": {
+            "type": "array",
+            "maxItems": 50,
+            "items": {
+              "$ref": "#/components/schemas/EvidenceSnapshotSelection"
+            },
+            "readOnly": true
+          },
+          "snapshotDigest": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "readOnly": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "readOnly": true
+          }
+        }
+      },
+      "EvidenceSnapshotSelection": {
+        "type": "object",
+        "required": [
+          "entryId",
+          "revisionId",
+          "revisionNumber",
+          "category",
+          "contentDigest",
+          "facts"
+        ],
+        "properties": {
+          "entryId": {
+            "type": "string",
+            "format": "uuid",
+            "readOnly": true
+          },
+          "revisionId": {
+            "type": "string",
+            "format": "uuid",
+            "readOnly": true
+          },
+          "revisionNumber": {
+            "type": "integer",
+            "minimum": 1,
+            "readOnly": true
+          },
+          "category": {
+            "allOf": [
+              {"$ref": "#/components/schemas/EvidenceCategory"}
+            ],
+            "readOnly": true
+          },
+          "contentDigest": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "readOnly": true
+          },
+          "facts": {
+            "type": "array",
+            "maxItems": 200,
+            "items": {
+              "$ref": "#/components/schemas/EvidenceSnapshotFact"
+            },
+            "readOnly": true
+          }
+        }
+      },
+      "EvidenceSnapshotFact": {
+        "type": "object",
+        "required": [
+          "factId",
+          "factType",
+          "factValue",
+          "numericClaim"
+        ],
+        "properties": {
+          "factId": {
+            "type": "string",
+            "format": "uuid",
+            "readOnly": true
+          },
+          "factType": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "readOnly": true
+          },
+          "factValue": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000,
+            "readOnly": true
+          },
+          "numericClaim": {
+            "type": "boolean",
+            "readOnly": true
+          }
+        }
+      },
+      "EvidenceSnapshotPurpose": {
+        "type": "string",
+        "enum": [
+          "CV",
+          "COVER_LETTER"
+        ]
       },
       "PartialDate": {
         "type": "object",
