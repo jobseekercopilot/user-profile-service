@@ -42,6 +42,8 @@ the search orchestrator, is defined in the Infrastructure
 - `GET /api/evidence/{entryId}` for one owner-scoped evidence entry
 - `PUT /api/evidence/{entryId}` to create an edited draft revision
 - `POST /api/evidence/{entryId}/{confirm|hide|show|archive|restore|supersede}` for explicit lifecycle actions
+- `POST /api/evidence/snapshots` to issue an owner-scoped, purpose-bound immutable selection
+- `GET /api/evidence/snapshots/{snapshotId}` to resolve an owned snapshot and its stable facts
 - `/actuator/health`
 - `/actuator/health/readiness` (application and redacted database status)
 
@@ -105,6 +107,14 @@ Evidence writes are bounded and category-aware, supporting links must be HTTPS,
 and HTML-shaped content is rejected. Editing or confirming creates a new
 immutable revision; visibility and lifecycle remain independent, and archived
 entries are excluded from the default list while remaining recoverable.
+
+Flyway V5 adds immutable CV and cover-letter evidence snapshots. The browser
+submits only a purpose, ordered server-issued entry IDs and safe category
+ordering. The service derives the owner from the access token, locks and
+authorizes each entry, resolves only the latest visible active user-confirmed
+revision, copies its stable fact IDs, and records profile/revision digests.
+Draft, review-required, hidden, archived, superseded, stale, duplicate and
+cross-owner selections fail closed. Evidence is never selected automatically.
 
 ```bash
 ./scripts/test-api-contract-policy.sh

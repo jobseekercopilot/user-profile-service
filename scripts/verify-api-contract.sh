@@ -35,6 +35,8 @@ jq -e '
     (.paths["/api/evidence/{entryId}/archive"].post.operationId == "archiveEvidence") and
     (.paths["/api/evidence/{entryId}/restore"].post.operationId == "restoreEvidence") and
     (.paths["/api/evidence/{entryId}/supersede"].post.operationId == "supersedeEvidence") and
+    (.paths["/api/evidence/snapshots"].post.operationId == "createEvidenceSnapshot") and
+    (.paths["/api/evidence/snapshots/{snapshotId}"].get.operationId == "getEvidenceSnapshot") and
     (.paths["/api/profiles/me"].get.security | any(has("bearerAuth"))) and
     (.paths["/api/profiles/me"].put.security | any(has("bearerAuth"))) and
     (.paths["/api/profiles/me"].patch.security | any(has("bearerAuth"))) and
@@ -64,6 +66,11 @@ jq -e '
     (.components.schemas.EvidenceLifecycle.enum == ["ACTIVE", "ARCHIVED", "SUPERSEDED"]) and
     (.components.schemas.EvidenceRevision.properties.contentDigest.readOnly == true) and
     (.components.schemas.EvidenceFact.properties.factId.readOnly == true)
+    and (.components.schemas.EvidenceSnapshotRequest.properties.entryIds.maxItems == 50)
+    and (.components.schemas.EvidenceSnapshotRequest.properties.sectionOrder.maxItems == 9)
+    and (.components.schemas.EvidenceSnapshotPurpose.enum == ["CV", "COVER_LETTER"])
+    and (.components.schemas.EvidenceSnapshot.properties.snapshotId.readOnly == true)
+    and (.components.schemas.EvidenceSnapshot.properties.createdAt.readOnly == true)
 ' "$contract" >/dev/null
 
 echo "API contract policy: User Profile OpenAPI source is present, intact and compatible"

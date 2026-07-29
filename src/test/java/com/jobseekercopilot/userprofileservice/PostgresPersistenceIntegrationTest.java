@@ -33,7 +33,7 @@ class PostgresPersistenceIntegrationTest {
 
     @Test
     void migratesEmptyPostgresAndEnforcesOwnershipAndDomainConstraints() throws SQLException {
-        assertEquals(4, flyway().migrate().migrationsExecuted);
+        assertEquals(5, flyway().migrate().migrationsExecuted);
 
         try (Connection connection = connection(); Statement statement = connection.createStatement()) {
             long profileId = insertProfile(statement, "profile-owner");
@@ -111,7 +111,7 @@ class PostgresPersistenceIntegrationTest {
                     """.formatted(profileId));
         }
 
-        assertEquals(3, flyway().migrate().migrationsExecuted);
+        assertEquals(4, flyway().migrate().migrationsExecuted);
         try (Connection connection = connection(); Statement statement = connection.createStatement()) {
             assertEquals(1, count(statement, "user_profile"));
             assertEquals(1, count(statement, "user_profile_skills"));
@@ -121,6 +121,7 @@ class PostgresPersistenceIntegrationTest {
             assertEquals(8, indexCount(statement));
             assertEquals(1, profileRevision(statement, "retained-owner"));
             assertEquals(0, count(statement, "evidence_entry"));
+            assertEquals(0, count(statement, "evidence_snapshot"));
             assertEquals(0, count(statement, "user_profile_employment_types"));
             assertEquals(0, count(statement, "user_profile_working_patterns"));
             assertEquals(0, count(statement, "user_profile_workplace_arrangements"));
