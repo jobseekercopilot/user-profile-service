@@ -3,15 +3,15 @@
   "contract": {
     "path": "api/openapi.json",
     "version": "1.3.0",
-    "sourceRevision": "e7582b46a383f31a4dde93fb3c52dcbae3796c2d",
-    "sha256": "fe316407d058702ffaa47c95e78440eeebc9979fe13cb083d4656aef2030387e",
+    "sourceRevision": "85ac64be8c541d0a252d8c7657306f950fec3c08",
+    "sha256": "54a50801e5b4f871d33c93efdf5fe8c93f65f78b9b673be74ac4321a7d193eec",
     "initialRelease": false,
     "compatibilityBaseRevision": "045100e4b6fc74e573838b4eb556a4415fa3fc64"
   },
   "javaPackage": {
     "groupId": "com.jobseekercopilot.clients",
     "artifactId": "user-profile-service-client",
-    "version": "1.3.0-rev.e7582b46a383",
+    "version": "1.3.0-rev.85ac64be8c54",
     "registry": "https://maven.pkg.github.com/jobseekercopilot/user-profile-service"
   },
   "generator": {
