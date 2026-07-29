@@ -70,7 +70,7 @@ jobs:
       - name: Reject an existing immutable coordinate
         env:
           PACKAGE_URL: >-
-            https://maven.pkg.github.com/jobseekercopilot/user-profile-service/com/jobseekercopilot/clients/user-profile-service-client/1.0.0-rev.86c8510ed319/user-profile-service-client-1.0.0-rev.86c8510ed319.pom
+            https://maven.pkg.github.com/jobseekercopilot/user-profile-service/com/jobseekercopilot/clients/user-profile-service-client/1.1.0-rev.036f0c50c110/user-profile-service-client-1.1.0-rev.036f0c50c110.pom
         run: |
           response_file="${{ runner.temp }}/package-response"
           status="$(
