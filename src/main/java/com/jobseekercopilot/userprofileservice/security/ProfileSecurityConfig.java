@@ -37,6 +37,7 @@ public class ProfileSecurityConfig {
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers("/internal/system-data/**").permitAll()
                         .requestMatchers("/api/profiles/**").authenticated()
+                        .requestMatchers("/api/evidence/**").authenticated()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").authenticated()
                         .anyRequest().denyAll())
                 .oauth2ResourceServer(resourceServer -> resourceServer

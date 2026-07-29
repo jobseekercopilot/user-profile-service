@@ -33,7 +33,7 @@ class PostgresPersistenceIntegrationTest {
 
     @Test
     void migratesEmptyPostgresAndEnforcesOwnershipAndDomainConstraints() throws SQLException {
-        assertEquals(2, flyway().migrate().migrationsExecuted);
+        assertEquals(3, flyway().migrate().migrationsExecuted);
 
         try (Connection connection = connection(); Statement statement = connection.createStatement()) {
             long profileId = insertProfile(statement, "profile-owner");
@@ -97,14 +97,16 @@ class PostgresPersistenceIntegrationTest {
                     """.formatted(profileId));
         }
 
-        assertEquals(1, flyway().migrate().migrationsExecuted);
+        assertEquals(2, flyway().migrate().migrationsExecuted);
         try (Connection connection = connection(); Statement statement = connection.createStatement()) {
             assertEquals(1, count(statement, "user_profile"));
             assertEquals(1, count(statement, "user_profile_skills"));
             assertEquals(1, count(statement, "user_profile_target_roles"));
             assertEquals(1, count(statement, "qualification"));
             assertEquals(1, count(statement, "role"));
-            assertEquals(4, indexCount(statement));
+            assertEquals(8, indexCount(statement));
+            assertEquals(1, profileRevision(statement, "retained-owner"));
+            assertEquals(0, count(statement, "evidence_entry"));
         }
     }
 
@@ -186,11 +188,23 @@ class PostgresPersistenceIntegrationTest {
                     'idx_profile_skills_profile_id',
                     'idx_profile_target_roles_profile_id',
                     'idx_qualification_profile_id',
-                    'idx_role_profile_id'
+                    'idx_role_profile_id',
+                    'idx_evidence_entry_owner',
+                    'idx_evidence_entry_owner_state',
+                    'idx_evidence_revision_entry',
+                    'idx_evidence_fact_revision'
                   )
                 """)) {
             assertTrue(result.next());
             return result.getInt(1);
+        }
+    }
+
+    private long profileRevision(Statement statement, String userId) throws SQLException {
+        try (ResultSet result = statement.executeQuery(
+                "SELECT profile_revision FROM user_profile WHERE user_id = '" + userId + "'")) {
+            assertTrue(result.next());
+            return result.getLong(1);
         }
     }
 

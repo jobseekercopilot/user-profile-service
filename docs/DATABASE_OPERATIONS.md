@@ -28,8 +28,17 @@ database password on a command line.
 3. Take and verify a backup before an environment change.
 4. Apply the release to one non-serving instance first. Flyway validates
    checksums and migrates before the application accepts traffic.
-5. Confirm `/actuator/health`, profile create/read/update, nested collection
-   persistence, and the current schema version before increasing traffic.
+5. Confirm `/actuator/health`, profile create/read/update, optimistic revision
+   conflicts, Evidence Library reads, nested collection persistence, and the
+   current schema version before increasing traffic.
+
+V3 is additive. It adds profile revision metadata and the Evidence Library
+tables while retaining legacy roles and qualifications. After Flyway completes,
+the application runner backfills missing profile revision identities/digests
+and imports legacy rows as review-required drafts. The import key is unique per
+profile and derived from a SHA-256 source hash, so restarting or rerunning the
+scan does not duplicate evidence. Observe the redacted completion counts and
+verify that no entry is promoted to `USER_CONFIRMED`.
 
 There are no automated down migrations. If an application rollback is needed,
 restore the prior application only when its schema is forward compatible.
@@ -55,10 +64,11 @@ pg_restore --exit-on-error --no-owner --no-acl \
 ```
 
 After restore, verify Flyway history and counts for profiles, skills, target
-roles, qualifications, and roles; then exercise create/read/update before any
-cutover. Record the dump identifier, checksum, timestamps, migration version,
-test evidence, and deletion date. Destroy the validation database and dump
-under the approved retention policy only after the drill is signed off.
+roles, qualifications, roles, evidence entries, revisions and facts; then
+exercise create/read/update before any cutover. Record the dump identifier,
+checksum, timestamps, migration version, test evidence, and deletion date.
+Destroy the validation database and dump under the approved retention policy
+only after the drill is signed off.
 
 The automated PostgreSQL test performs this drill with synthetic data in a
 throwaway container and restores into a distinct database. It never reads or

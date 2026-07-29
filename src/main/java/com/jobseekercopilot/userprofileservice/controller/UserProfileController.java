@@ -17,6 +17,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.validation.annotation.Validated;
@@ -53,7 +54,9 @@ public class UserProfileController {
             var profile = userProfileService.getProfileByUserId(userId);
             if (profile.isPresent()) {
                 telemetry.record(OperationType.READ, Outcome.SUCCESS, StatusFamily.SUCCESS, System.nanoTime() - startedAt);
-                return new ResponseEntity<>(profile.get(), HttpStatus.OK);
+                return ResponseEntity.ok()
+                        .eTag(Long.toString(profile.get().getRevision()))
+                        .body(profile.get());
             }
             telemetry.record(OperationType.READ, Outcome.NOT_FOUND, StatusFamily.CLIENT_ERROR, System.nanoTime() - startedAt);
             throw new ResourceNotFoundException("User profile not found");
@@ -75,13 +78,19 @@ public class UserProfileController {
     })
     public ResponseEntity<UserProfile> createOrUpdateMyProfile(
             @AuthenticationPrincipal Jwt accessToken,
+            @RequestHeader(value = HttpHeaders.IF_MATCH, required = false) String ifMatch,
             @Valid @RequestBody UserProfile userProfile) {
         String userId = accessToken.getSubject();
         long startedAt = System.nanoTime();
         try {
-            UserProfile savedProfile = userProfileService.createOrUpdateProfile(userId, userProfile);
+            UserProfile savedProfile = userProfileService.createOrUpdateProfile(
+                    userId,
+                    userProfile,
+                    parseExpectedRevision(ifMatch));
             telemetry.record(OperationType.UPSERT, Outcome.SUCCESS, StatusFamily.SUCCESS, System.nanoTime() - startedAt);
-            return new ResponseEntity<>(savedProfile, HttpStatus.OK);
+            return ResponseEntity.ok()
+                    .eTag(Long.toString(savedProfile.getRevision()))
+                    .body(savedProfile);
         } catch (ProfileWriteConflictException exception) {
             telemetry.record(OperationType.UPSERT, Outcome.CONFLICT, StatusFamily.CLIENT_ERROR, System.nanoTime() - startedAt);
             throw exception;
@@ -91,6 +100,49 @@ public class UserProfileController {
         } catch (RuntimeException exception) {
             telemetry.record(OperationType.UPSERT, Outcome.INTERNAL_ERROR, StatusFamily.SERVER_ERROR, System.nanoTime() - startedAt);
             throw exception;
+        }
+    }
+
+    ResponseEntity<UserProfile> createOrUpdateMyProfile(Jwt accessToken, UserProfile userProfile) {
+        String userId = accessToken.getSubject();
+        long startedAt = System.nanoTime();
+        try {
+            UserProfile savedProfile = userProfileService.createOrUpdateProfile(userId, userProfile);
+            telemetry.record(OperationType.UPSERT, Outcome.SUCCESS, StatusFamily.SUCCESS, System.nanoTime() - startedAt);
+            return ResponseEntity.ok()
+                    .eTag(Long.toString(savedProfile.getRevision()))
+                    .body(savedProfile);
+        } catch (ProfileWriteConflictException exception) {
+            telemetry.record(OperationType.UPSERT, Outcome.CONFLICT, StatusFamily.CLIENT_ERROR, System.nanoTime() - startedAt);
+            throw exception;
+        } catch (IllegalArgumentException exception) {
+            telemetry.record(OperationType.UPSERT, Outcome.INVALID_REQUEST, StatusFamily.CLIENT_ERROR, System.nanoTime() - startedAt);
+            throw exception;
+        } catch (RuntimeException exception) {
+            telemetry.record(OperationType.UPSERT, Outcome.INTERNAL_ERROR, StatusFamily.SERVER_ERROR, System.nanoTime() - startedAt);
+            throw exception;
+        }
+    }
+
+    private Long parseExpectedRevision(String ifMatch) {
+        if (ifMatch == null || ifMatch.isBlank()) {
+            return null;
+        }
+        String candidate = ifMatch.strip();
+        if (candidate.startsWith("W/")) {
+            throw new IllegalArgumentException("Weak ETags are not supported");
+        }
+        if (candidate.length() >= 2 && candidate.startsWith("\"") && candidate.endsWith("\"")) {
+            candidate = candidate.substring(1, candidate.length() - 1);
+        }
+        try {
+            long revision = Long.parseLong(candidate);
+            if (revision < 0) {
+                throw new IllegalArgumentException("Profile revision cannot be negative");
+            }
+            return revision;
+        } catch (NumberFormatException exception) {
+            throw new IllegalArgumentException("If-Match must contain a profile revision", exception);
         }
     }
 }

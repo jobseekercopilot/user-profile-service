@@ -56,7 +56,7 @@ class ProfileSecurityIntegrationTest {
         headers.set("X-User-Id", "victim");
         ResponseEntity<Map> response = put(headers, "{\"userId\":\"victim\",\"skills\":[\"Java\"]}");
 
-        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(HttpStatus.OK, response.getStatusCode(), String.valueOf(response.getBody()));
         assertEquals("alice", response.getBody().get("userId"));
         assertTrue(repository.findByUserId("alice").isPresent());
         assertTrue(repository.findByUserId("victim").isEmpty());
@@ -64,8 +64,9 @@ class ProfileSecurityIntegrationTest {
 
     @Test
     void oneUsersTokenCannotReadOrOverwriteAnotherUsersProfile() {
-        assertEquals(HttpStatus.OK, put(authenticated(JWKS.validToken("alice")),
-                "{\"skills\":[\"Alice skill\"]}").getStatusCode());
+        ResponseEntity<Map> aliceWrite = put(authenticated(JWKS.validToken("alice")),
+                "{\"skills\":[\"Alice skill\"]}");
+        assertEquals(HttpStatus.OK, aliceWrite.getStatusCode(), String.valueOf(aliceWrite.getBody()));
 
         HttpHeaders bob = authenticated(JWKS.validToken("bob"));
         bob.set("X-User-Id", "alice");
@@ -109,6 +110,91 @@ class ProfileSecurityIntegrationTest {
         assertEquals(HttpStatus.OK, restTemplate.getForEntity("/actuator/health", Map.class).getStatusCode());
         assertEquals(HttpStatus.UNAUTHORIZED,
                 restTemplate.getForEntity("/not-an-application-route", Map.class).getStatusCode());
+    }
+
+    @Test
+    void profileRevisionRejectsStaleWritesAndKeepsMissingPreferencesUnset() {
+        HttpHeaders headers = authenticated(JWKS.validToken("revision-owner"));
+        ResponseEntity<Map> created = put(headers, "{\"skills\":[\"Java\"]}");
+
+        assertEquals(HttpStatus.OK, created.getStatusCode(), String.valueOf(created.getBody()));
+        assertEquals(1, created.getBody().get("revision"));
+        assertEquals("\"1\"", created.getHeaders().getETag());
+        assertNull(created.getBody().get("aspirations"));
+        assertNull(created.getBody().get("workPreferences"));
+
+        HttpHeaders current = authenticated(JWKS.validToken("revision-owner"));
+        current.setIfMatch("\"1\"");
+        ResponseEntity<Map> updated = put(current, "{\"skills\":[\"Java\",\"SQL\"]}");
+        assertEquals(HttpStatus.OK, updated.getStatusCode(), String.valueOf(updated.getBody()));
+        assertEquals(2, updated.getBody().get("revision"));
+        assertEquals("\"2\"", updated.getHeaders().getETag());
+
+        ResponseEntity<Map> stale = put(current, "{\"skills\":[\"Invented stale value\"]}");
+        assertEquals(HttpStatus.CONFLICT, stale.getStatusCode());
+        assertEquals("PROFILE_REVISION_CONFLICT", stale.getBody().get("code"));
+
+        ResponseEntity<Map> retained = restTemplate.exchange(
+                "/api/profiles/me",
+                HttpMethod.GET,
+                new HttpEntity<>(authenticated(JWKS.validToken("revision-owner"))),
+                Map.class);
+        assertEquals(List.of("Java", "SQL"), retained.getBody().get("skills"));
+        assertEquals(2, retained.getBody().get("revision"));
+    }
+
+    @Test
+    void legacyEvidenceMigrationIsIdempotentDraftAndOwnerScoped() {
+        HttpHeaders owner = authenticated(JWKS.validToken("evidence-owner"));
+        String body = """
+                {
+                  "roles": [{
+                    "jobTitle": "Engineer",
+                    "employer": "Employer",
+                    "status": "CURRENT",
+                    "startDate": "2025-01",
+                    "keyResponsibilities": "Built services"
+                  }],
+                  "qualifications": [{
+                    "qualificationName": "Cloud certificate",
+                    "issuingBody": "Training provider",
+                    "status": "COMPLETED",
+                    "grade": "Pass",
+                    "dateAchieved": "2025-06"
+                  }]
+                }
+                """;
+        assertEquals(HttpStatus.OK, put(owner, body).getStatusCode());
+
+        ResponseEntity<List> first = restTemplate.exchange(
+                "/api/evidence",
+                HttpMethod.GET,
+                new HttpEntity<>(owner),
+                List.class);
+        ResponseEntity<List> rerun = restTemplate.exchange(
+                "/api/evidence",
+                HttpMethod.GET,
+                new HttpEntity<>(owner),
+                List.class);
+
+        assertEquals(HttpStatus.OK, first.getStatusCode());
+        assertEquals(2, first.getBody().size());
+        assertEquals(2, rerun.getBody().size());
+        Map firstEntry = (Map) first.getBody().get(0);
+        assertEquals(true, firstEntry.get("reviewRequired"));
+        assertEquals("ACTIVE", firstEntry.get("lifecycle"));
+        Map firstRevision = (Map) ((List) firstEntry.get("revisions")).get(0);
+        assertEquals("DRAFT", firstRevision.get("confirmationState"));
+        assertEquals("LEGACY_MIGRATION", firstRevision.get("createdBy"));
+        assertNotNull(firstRevision.get("contentDigest"));
+        assertFalse(((List) firstRevision.get("facts")).isEmpty());
+
+        ResponseEntity<Map> crossOwner = restTemplate.exchange(
+                "/api/evidence/" + firstEntry.get("entryId"),
+                HttpMethod.GET,
+                new HttpEntity<>(authenticated(JWKS.validToken("different-owner"))),
+                Map.class);
+        assertEquals(HttpStatus.NOT_FOUND, crossOwner.getStatusCode());
     }
 
     private ResponseEntity<Map> put(HttpHeaders headers, String body) {

@@ -5,6 +5,7 @@ import com.jobseekercopilot.userprofileservice.model.Qualification;
 import com.jobseekercopilot.userprofileservice.model.Role;
 import com.jobseekercopilot.userprofileservice.exception.ProfileValidationException;
 import com.jobseekercopilot.userprofileservice.exception.ProfileWriteConflictException;
+import com.jobseekercopilot.userprofileservice.exception.ProfileRevisionConflictException;
 import com.jobseekercopilot.userprofileservice.repository.UserProfileRepository;
 import com.jobseekercopilot.userprofileservice.validation.ProfileNormalizer;
 import com.jobseekercopilot.userprofileservice.validation.QualificationValidator;
@@ -17,6 +18,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 public class UserProfileService {
@@ -28,22 +30,29 @@ public class UserProfileService {
     private final RoleValidator roleValidator;
     private final ProfileNormalizer profileNormalizer;
     private final ProfileWriteCoordinator profileWriteCoordinator;
+    private final ProfileDigestCalculator profileDigestCalculator;
+    private final LegacyEvidenceMigrator legacyEvidenceMigrator;
 
     public UserProfileService(
             UserProfileRepository userProfileRepository,
             QualificationValidator qualificationValidator,
             RoleValidator roleValidator,
             ProfileNormalizer profileNormalizer,
-            ProfileWriteCoordinator profileWriteCoordinator) {
+            ProfileWriteCoordinator profileWriteCoordinator,
+            ProfileDigestCalculator profileDigestCalculator,
+            LegacyEvidenceMigrator legacyEvidenceMigrator) {
         this.userProfileRepository = userProfileRepository;
         this.qualificationValidator = qualificationValidator;
         this.roleValidator = roleValidator;
         this.profileNormalizer = profileNormalizer;
         this.profileWriteCoordinator = profileWriteCoordinator;
+        this.profileDigestCalculator = profileDigestCalculator;
+        this.legacyEvidenceMigrator = legacyEvidenceMigrator;
     }
 
     public Optional<UserProfile> getProfileByUserId(String userId) {
         long startedAt = System.nanoTime();
+        legacyEvidenceMigrator.migrateForOwner(userId);
         Optional<UserProfile> profile = userProfileRepository.findByUserId(userId);
         log.info("User profile lookup found={} durationMs={}",
                 profile.isPresent(),
@@ -52,6 +61,13 @@ public class UserProfileService {
     }
 
     public UserProfile createOrUpdateProfile(String userId, UserProfile userProfile) {
+        return createOrUpdateProfile(userId, userProfile, null);
+    }
+
+    public UserProfile createOrUpdateProfile(
+            String userId,
+            UserProfile userProfile,
+            Long expectedRevision) {
         long startedAt = System.nanoTime();
         log.info("User profile save started skillsCount={} qualificationsCount={} rolesCount={} hasAspirations={} hasWorkPreferences={}",
                 userProfile == null || userProfile.getSkills() == null ? 0 : userProfile.getSkills().size(),
@@ -78,7 +94,11 @@ public class UserProfileService {
         }
 
         try {
-            return profileWriteCoordinator.execute(userId, () -> saveProfile(userId, userProfile, startedAt));
+            UserProfile saved = profileWriteCoordinator.execute(
+                    userId,
+                    () -> saveProfile(userId, userProfile, expectedRevision, startedAt));
+            legacyEvidenceMigrator.migrateForOwner(userId);
+            return saved;
         } catch (DataIntegrityViolationException exception) {
             log.warn("User profile write conflict durationMs={}",
                     (System.nanoTime() - startedAt) / 1_000_000);
@@ -86,23 +106,48 @@ public class UserProfileService {
         }
     }
 
-    private UserProfile saveProfile(String userId, UserProfile userProfile, long startedAt) {
+    private UserProfile saveProfile(
+            String userId,
+            UserProfile userProfile,
+            Long expectedRevision,
+            long startedAt) {
         return userProfileRepository.findByUserId(userId)
                 .map(existingProfile -> {
+                    if (expectedRevision != null && expectedRevision != existingProfile.getRevision()) {
+                        throw new ProfileRevisionConflictException();
+                    }
+                    String previousDigest = existingProfile.getContentDigest();
+                    if (previousDigest == null) {
+                        previousDigest = profileDigestCalculator.digest(existingProfile);
+                    }
                     existingProfile.setSkills(userProfile.getSkills());
                     existingProfile.setAspirations(userProfile.getAspirations());
                     existingProfile.setWorkPreferences(userProfile.getWorkPreferences());
                     replaceQualifications(existingProfile, userProfile.getQualifications());
                     replaceRoles(existingProfile, userProfile.getRoles());
+                    String updatedDigest = profileDigestCalculator.digest(existingProfile);
+                    if (!updatedDigest.equals(previousDigest)) {
+                        existingProfile.setRevision(existingProfile.getRevision() + 1);
+                        existingProfile.setRevisionId(UUID.randomUUID().toString());
+                    } else if (existingProfile.getRevisionId() == null) {
+                        existingProfile.setRevisionId(UUID.randomUUID().toString());
+                    }
+                    existingProfile.setContentDigest(updatedDigest);
                     UserProfile saved = userProfileRepository.save(existingProfile);
                     log.info("User profile updated durationMs={}",
                             (System.nanoTime() - startedAt) / 1_000_000);
                     return saved;
                 })
                 .orElseGet(() -> {
+                    if (expectedRevision != null && expectedRevision != 0) {
+                        throw new ProfileRevisionConflictException();
+                    }
                     userProfile.setId(null);
+                    userProfile.setRevision(1L);
+                    userProfile.setRevisionId(UUID.randomUUID().toString());
                     replaceQualifications(userProfile, userProfile.getQualifications());
                     replaceRoles(userProfile, userProfile.getRoles());
+                    userProfile.setContentDigest(profileDigestCalculator.digest(userProfile));
                     UserProfile saved = userProfileRepository.save(userProfile);
                     log.info("User profile created durationMs={}",
                             (System.nanoTime() - startedAt) / 1_000_000);

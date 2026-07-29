@@ -19,6 +19,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -43,6 +44,23 @@ public class UserProfile {
     @Column(name = "user_id", unique = true, nullable = false, length = 128)
     @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private String userId;
+
+    @Column(name = "profile_revision", nullable = false)
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    private Long revision = 1L;
+
+    @Column(name = "revision_id", length = 36)
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    private String revisionId;
+
+    @Column(name = "content_digest", length = 64)
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    private String contentDigest;
+
+    @Version
+    @Column(name = "entity_version", nullable = false)
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    private Long entityVersion;
 
     @Size(max = ProfileConstraints.MAX_SKILLS)
     @ElementCollection
