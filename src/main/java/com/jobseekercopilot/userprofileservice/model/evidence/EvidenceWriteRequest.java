@@ -46,13 +46,13 @@ public class EvidenceWriteRequest {
     @Size(max = 200)
     private String projectRole;
 
-    @Size(max = 4000)
+    @Size(max = 2000)
     private String description;
 
-    @Size(max = 4000)
+    @Size(max = 2000)
     private String responsibilities;
 
-    @Size(max = 4000)
+    @Size(max = 2000)
     private String achievements;
 
     @Size(max = 1000)

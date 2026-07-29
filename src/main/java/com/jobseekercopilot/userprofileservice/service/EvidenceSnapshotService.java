@@ -25,6 +25,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class EvidenceSnapshotService {
 
+    private static final int MAX_SNAPSHOT_FACTS = 50;
+
     private final EvidenceSnapshotRepository snapshotRepository;
     private final EvidenceEntryRepository evidenceRepository;
     private final UserProfileRepository profileRepository;
@@ -58,6 +60,7 @@ public class EvidenceSnapshotService {
         snapshot.setProfileContentDigest(profile.getContentDigest());
         snapshot.setSectionOrder(List.copyOf(request.getSectionOrder()));
 
+        int factCount = 0;
         for (String entryId : request.getEntryIds()) {
             EvidenceEntry entry = evidenceRepository
                     .findLockedByEntryIdAndUserProfileUserId(entryId, userId)
@@ -66,6 +69,11 @@ public class EvidenceSnapshotService {
                 throw new EvidenceConflictException("Selected evidence has no requested section");
             }
             EvidenceRevision revision = eligibleRevision(entry);
+            factCount += revision.getFacts().size();
+            if (factCount > MAX_SNAPSHOT_FACTS) {
+                throw new EvidenceConflictException(
+                        "Selected evidence exceeds the snapshot fact limit");
+            }
             snapshot.addSelection(selection(entry, revision));
         }
 

@@ -449,6 +449,71 @@ class ProfileSecurityIntegrationTest {
         assertEquals("PROFILE_VALIDATION_FAILED", response.getBody().get("code"));
     }
 
+    @Test
+    void evidenceEnforcesConciseSemanticsAndPersistsCurrentAsGroundedFact() {
+        HttpHeaders owner = authenticated(JWKS.validToken("evidence-semantics-owner"));
+        assertEquals(HttpStatus.OK, put(owner, "{}").getStatusCode());
+
+        ResponseEntity<Map> currentEmployment = evidence(
+                "/api/evidence",
+                HttpMethod.POST,
+                owner,
+                """
+                        {
+                          "category": "EMPLOYMENT",
+                          "heading": "Software Engineer",
+                          "roleTitle": "Software Engineer",
+                          "organisationContext": "Example Ltd",
+                          "startDate": {"precision": "MONTH", "year": 2025, "month": 1},
+                          "ongoing": true
+                        }
+                        """);
+        assertEquals(
+                HttpStatus.CREATED,
+                currentEmployment.getStatusCode(),
+                String.valueOf(currentEmployment.getBody()));
+        List facts = (List) latestRevision(currentEmployment).get("facts");
+        assertTrue(facts.stream().anyMatch(value -> {
+            Map fact = (Map) value;
+            return "END_DATE".equals(fact.get("factType"))
+                    && "Present".equals(fact.get("factValue"));
+        }));
+
+        ResponseEntity<Map> freelance = evidence(
+                "/api/evidence",
+                HttpMethod.POST,
+                owner,
+                """
+                        {
+                          "category": "FREELANCE",
+                          "heading": "Website developer",
+                          "roleTitle": "Website developer",
+                          "description": "Delivered an accessible business website."
+                        }
+                        """);
+        assertEquals(HttpStatus.CREATED, freelance.getStatusCode(), String.valueOf(freelance.getBody()));
+        assertNull(latestRevision(freelance).get("organisationContext"));
+
+        ResponseEntity<Map> staleEndDate = evidence(
+                "/api/evidence",
+                HttpMethod.POST,
+                owner,
+                """
+                        {
+                          "category": "EMPLOYMENT",
+                          "heading": "Engineer",
+                          "roleTitle": "Engineer",
+                          "organisationContext": "Example Ltd",
+                          "startDate": {"precision": "MONTH", "year": 2025, "month": 1},
+                          "endDate": {"precision": "MONTH", "year": 2026, "month": 1},
+                          "ongoing": true
+                        }
+                        """);
+        assertEquals(HttpStatus.BAD_REQUEST, staleEndDate.getStatusCode());
+        assertEquals("PROFILE_VALIDATION_FAILED", staleEndDate.getBody().get("code"));
+        assertFalse(staleEndDate.getBody().toString().contains("Example Ltd"));
+    }
+
     private ResponseEntity<Map> put(HttpHeaders headers, String body) {
         return restTemplate.exchange("/api/profiles/me", HttpMethod.PUT,
                 new HttpEntity<>(body, headers), Map.class);

@@ -129,7 +129,8 @@ public class LegacyEvidenceMigrator {
         addFact(revision, "ROLE_TITLE", role.getJobTitle());
         addFact(revision, "ORGANISATION", role.getEmployer());
         addFact(revision, "START_DATE", role.getStartDate());
-        addFact(revision, "END_DATE", role.getEndDate());
+        addFact(revision, "END_DATE",
+                role.getStatus() == RoleStatus.CURRENT ? "Present" : role.getEndDate());
         addFact(revision, "RESPONSIBILITY", role.getKeyResponsibilities());
         entry.addRevision(revision);
         return entry;

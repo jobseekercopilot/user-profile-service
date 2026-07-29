@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Job Seeker Copilot User Profile API",
-    "version": "1.3.0",
+    "version": "2.0.0",
     "description": "Producer-owned contract for authenticated current-user profile, versioned evidence and immutable purpose-bound snapshot operations."
   },
   "tags": [
@@ -1178,7 +1178,8 @@
           },
           "resultOrStatus": {
             "type": "string",
-            "maxLength": 100
+            "maxLength": 100,
+            "description": "Required as exactly Completed or In progress for education and qualification/training."
           },
           "projectRole": {
             "type": "string",
@@ -1186,15 +1187,15 @@
           },
           "description": {
             "type": "string",
-            "maxLength": 4000
+            "maxLength": 2000
           },
           "responsibilities": {
             "type": "string",
-            "maxLength": 4000
+            "maxLength": 2000
           },
           "achievements": {
             "type": "string",
-            "maxLength": 4000
+            "maxLength": 2000
           },
           "careerBreakReason": {
             "type": "string",
@@ -1207,7 +1208,8 @@
           },
           "ongoing": {
             "type": "boolean",
-            "default": false
+            "default": false,
+            "description": "Only meaningful for employment, project, volunteering, freelance, career-break and other date ranges. endDate must be absent when true."
           },
           "startDate": {
             "$ref": "#/components/schemas/PartialDate"
@@ -1241,7 +1243,7 @@
             }
           }
         },
-        "description": "Bounded plain-text evidence content. Category-specific required fields are enforced by the service."
+        "description": "Bounded plain-text evidence content. Category minimums, completion-status dates, chronology, current/end-date exclusivity and a 50-fact ceiling are enforced by the service."
       },
       "EvidenceSupersedeRequest": {
         "type": "object",
@@ -1272,7 +1274,7 @@
             "type": "array",
             "minItems": 1,
             "maxItems": 50,
-            "description": "Ordered server-issued evidence entry IDs; fact or revision IDs are not accepted from the browser",
+            "description": "Ordered server-issued evidence entry IDs; fact or revision IDs are not accepted from the browser. The selected revisions may contain at most 50 facts in aggregate.",
             "items": {
               "type": "string",
               "format": "uuid"
@@ -1386,7 +1388,7 @@
           },
           "facts": {
             "type": "array",
-            "maxItems": 200,
+            "maxItems": 50,
             "items": {
               "$ref": "#/components/schemas/EvidenceSnapshotFact"
             },
