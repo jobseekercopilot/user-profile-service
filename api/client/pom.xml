@@ -6,7 +6,7 @@
 
     <groupId>com.jobseekercopilot.clients</groupId>
     <artifactId>user-profile-service-client</artifactId>
-    <version>1.2.0-rev.045100e4b6fc</version>
+    <version>1.3.0-rev.e7582b46a383</version>
     <packaging>jar</packaging>
 
     <name>Job Seeker Copilot User Profile API Client</name>
@@ -16,7 +16,7 @@
     <properties>
         <maven.compiler.release>17</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <project.build.outputTimestamp>2026-07-24T00:00:00Z</project.build.outputTimestamp>
+        <project.build.outputTimestamp>2026-07-29T00:00:00Z</project.build.outputTimestamp>
         <openapi-generator.version>7.5.0</openapi-generator.version>
         <spring-framework.version>6.1.1</spring-framework.version>
         <jackson.version>2.15.3</jackson.version>
@@ -25,9 +25,9 @@
         <jakarta-validation.version>3.0.2</jakarta-validation.version>
         <jobseekercopilot.contract.repository>jobseekercopilot/user-profile-service</jobseekercopilot.contract.repository>
         <jobseekercopilot.contract.path>api/openapi.json</jobseekercopilot.contract.path>
-        <jobseekercopilot.contract.version>1.2.0</jobseekercopilot.contract.version>
-        <jobseekercopilot.contract.revision>045100e4b6fc74e573838b4eb556a4415fa3fc64</jobseekercopilot.contract.revision>
-        <jobseekercopilot.contract.sha256>fab9367b04ca3fa469b1a2d4a4b4297cecd44d23cf718bfbfd8e495f19455787</jobseekercopilot.contract.sha256>
+        <jobseekercopilot.contract.version>1.3.0</jobseekercopilot.contract.version>
+        <jobseekercopilot.contract.revision>e7582b46a383f31a4dde93fb3c52dcbae3796c2d</jobseekercopilot.contract.revision>
+        <jobseekercopilot.contract.sha256>fe316407d058702ffaa47c95e78440eeebc9979fe13cb083d4656aef2030387e</jobseekercopilot.contract.sha256>
     </properties>
 
     <dependencyManagement>
