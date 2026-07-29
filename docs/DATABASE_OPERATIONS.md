@@ -40,6 +40,13 @@ profile and derived from a SHA-256 source hash, so restarting or rerunning the
 scan does not duplicate evidence. Observe the redacted completion counts and
 verify that no entry is promoted to `USER_CONFIRMED`.
 
+V4 is additive. It adds normalized profile preference sets, explicit
+availability fields and the Evidence Library optimistic entry version. Existing
+rows remain valid: no preference or availability value is inferred, and
+existing evidence begins at entry version zero. After deployment, verify a
+section-only preference update, a stale `If-Match` conflict and the
+create/edit/confirm/archive/restore evidence journey before increasing traffic.
+
 There are no automated down migrations. If an application rollback is needed,
 restore the prior application only when its schema is forward compatible.
 Otherwise stop writes and restore the pre-change backup into a newly provisioned

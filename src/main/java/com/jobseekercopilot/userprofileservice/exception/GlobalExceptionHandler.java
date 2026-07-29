@@ -74,6 +74,17 @@ public class GlobalExceptionHandler {
                 "The profile has changed; reload it before saving.");
     }
 
+    @ExceptionHandler(EvidenceNotFoundException.class)
+    ResponseEntity<ErrorResponse> handleEvidenceNotFound() {
+        return failure(HttpStatus.NOT_FOUND, "EVIDENCE_NOT_FOUND", "Evidence entry was not found.");
+    }
+
+    @ExceptionHandler(EvidenceConflictException.class)
+    ResponseEntity<ErrorResponse> handleEvidenceConflict() {
+        return failure(HttpStatus.CONFLICT, "EVIDENCE_CONFLICT",
+                "The evidence changed or its current state does not allow this action.");
+    }
+
     @ExceptionHandler(HttpMessageNotReadableException.class)
     ResponseEntity<ErrorResponse> handleMalformedJson(HttpMessageNotReadableException exception) {
         if (hasCause(exception, PayloadTooLargeIOException.class)) {

@@ -21,6 +21,7 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.Version;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -79,6 +80,11 @@ public class EvidenceEntry {
 
     @Column(name = "review_required", nullable = false)
     private boolean reviewRequired;
+
+    @Version
+    @Column(name = "entry_version", nullable = false)
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    private Long version;
 
     @OneToMany(mappedBy = "evidenceEntry", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("revisionNumber ASC")

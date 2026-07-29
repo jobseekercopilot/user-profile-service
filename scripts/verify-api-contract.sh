@@ -24,10 +24,20 @@ jq -e '
     (.components.securitySchemes.bearerAuth.bearerFormat == "JWT") and
     (.paths["/api/profiles/me"].get.operationId == "getMyProfile") and
     (.paths["/api/profiles/me"].put.operationId == "createOrUpdateMyProfile") and
+    (.paths["/api/profiles/me"].patch.operationId == "updateMyPreferences") and
     (.paths["/api/evidence"].get.operationId == "listEvidence") and
+    (.paths["/api/evidence"].post.operationId == "createEvidence") and
     (.paths["/api/evidence/{entryId}"].get.operationId == "getEvidence") and
+    (.paths["/api/evidence/{entryId}"].put.operationId == "updateEvidence") and
+    (.paths["/api/evidence/{entryId}/confirm"].post.operationId == "confirmEvidence") and
+    (.paths["/api/evidence/{entryId}/hide"].post.operationId == "hideEvidence") and
+    (.paths["/api/evidence/{entryId}/show"].post.operationId == "showEvidence") and
+    (.paths["/api/evidence/{entryId}/archive"].post.operationId == "archiveEvidence") and
+    (.paths["/api/evidence/{entryId}/restore"].post.operationId == "restoreEvidence") and
+    (.paths["/api/evidence/{entryId}/supersede"].post.operationId == "supersedeEvidence") and
     (.paths["/api/profiles/me"].get.security | any(has("bearerAuth"))) and
     (.paths["/api/profiles/me"].put.security | any(has("bearerAuth"))) and
+    (.paths["/api/profiles/me"].patch.security | any(has("bearerAuth"))) and
     (.paths["/api/profiles/me"].put.requestBody.required == true) and
     (.paths["/api/profiles/me"].put.requestBody.content["application/json"].schema["$ref"] == "#/components/schemas/UserProfile") and
     (.components.schemas.UserProfile.properties.skills.maxItems == 100) and
@@ -36,6 +46,13 @@ jq -e '
     (.components.schemas.Aspirations.properties.targetRoles.maxItems == 50) and
     (.components.schemas.WorkPreferences.properties.commuteRange.minimum == 0) and
     (.components.schemas.WorkPreferences.properties.commuteRange.maximum == 500) and
+    (.components.schemas.WorkPreferences.properties.employmentTypes.maxItems == 5) and
+    (.components.schemas.WorkPreferences.properties.workingPatterns.maxItems == 8) and
+    (.components.schemas.WorkPreferences.properties.workplaceArrangements.maxItems == 3) and
+    (.components.schemas.WorkPreferences.properties.noticePeriodDays.maximum == 3650) and
+    (.components.schemas.EvidenceWriteRequest.properties.supportingLinks.maxItems == 10) and
+    (.components.schemas.EvidenceWriteRequest.properties.supportingLinks.items.pattern == "^https://") and
+    (.components.schemas.EvidenceEntry.properties.version.readOnly == true) and
     (.components.schemas.UserProfile.properties.id.readOnly == true) and
     (.components.schemas.UserProfile.properties.userId.readOnly == true) and
     (.components.schemas.UserProfile.properties.revision.readOnly == true) and

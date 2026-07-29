@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.LinkedHashSet;
 import java.util.Locale;
 
 @Component
@@ -36,12 +37,28 @@ public class ProfileNormalizer {
 
     private void normalize(WorkPreferences preferences) {
         if (preferences == null || preferences.getLocation() == null) {
+            if (preferences != null) {
+                normalisePreferenceCollections(preferences);
+            }
             return;
         }
+        normalisePreferenceCollections(preferences);
         PostcodeLocation location = preferences.getLocation();
         location.setPostcode(normalizePostcode(location.getPostcode()));
         location.setRegion(normalizeText(location.getRegion()));
         location.setAdminDistrict(normalizeText(location.getAdminDistrict()));
+    }
+
+    private void normalisePreferenceCollections(WorkPreferences preferences) {
+        preferences.setEmploymentTypes(preferences.getEmploymentTypes() == null
+                ? new LinkedHashSet<>()
+                : new LinkedHashSet<>(preferences.getEmploymentTypes()));
+        preferences.setWorkingPatterns(preferences.getWorkingPatterns() == null
+                ? new LinkedHashSet<>()
+                : new LinkedHashSet<>(preferences.getWorkingPatterns()));
+        preferences.setWorkplaceArrangements(preferences.getWorkplaceArrangements() == null
+                ? new LinkedHashSet<>()
+                : new LinkedHashSet<>(preferences.getWorkplaceArrangements()));
     }
 
     private void normalize(Qualification qualification) {
