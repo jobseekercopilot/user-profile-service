@@ -4,7 +4,7 @@
     "path": "api/openapi.json",
     "version": "2.1.0",
     "sourceRevision": "79910a881246dbcc5a981add36bf2e543564d35e",
-    "sha256": "1c25c49efd3e7f411e19b02f2fab2b615f1530b77a324340a50efc7c5742cc20",
+    "sha256": "1770e3aed76aa69f16015b496947e9ed2d28fb93f48e21fd4abcb03ec38d680d",
     "initialRelease": false,
     "compatibilityBaseRevision": "85ac64be8c541d0a252d8c7657306f950fec3c08"
   },

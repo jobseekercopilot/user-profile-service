@@ -25,9 +25,9 @@
         <jakarta-validation.version>3.0.2</jakarta-validation.version>
         <jobseekercopilot.contract.repository>jobseekercopilot/user-profile-service</jobseekercopilot.contract.repository>
         <jobseekercopilot.contract.path>api/openapi.json</jobseekercopilot.contract.path>
-        <jobseekercopilot.contract.version>2.0.0</jobseekercopilot.contract.version>
-        <jobseekercopilot.contract.revision>03d24c68342f86d573623541a4f8506acdf1b047</jobseekercopilot.contract.revision>
-        <jobseekercopilot.contract.sha256>962254757585bfd1339df0ffdd3196a4b0b720f8dc16bc0f6c439dedb84771b8</jobseekercopilot.contract.sha256>
+        <jobseekercopilot.contract.version>2.1.0</jobseekercopilot.contract.version>
+        <jobseekercopilot.contract.revision>79910a881246dbcc5a981add36bf2e543564d35e</jobseekercopilot.contract.revision>
+        <jobseekercopilot.contract.sha256>1770e3aed76aa69f16015b496947e9ed2d28fb93f48e21fd4abcb03ec38d680d</jobseekercopilot.contract.sha256>
     </properties>
 
     <dependencyManagement>
