@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Job Seeker Copilot User Profile API",
-    "version": "2.0.0",
-    "description": "Producer-owned contract for authenticated current-user profile, versioned evidence and immutable purpose-bound snapshot operations."
+    "version": "2.1.0",
+    "description": "Producer-owned contract for authenticated current-user profile, personal-data export, versioned evidence and immutable purpose-bound snapshot operations."
   },
   "tags": [
     {
@@ -555,6 +555,32 @@
           "404": {"description": "Snapshot does not exist or is owned by another claimant"}
         }
       }
+    },
+    "/api/profiles/me/export": {
+      "get": {
+        "tags": ["User Profiles"],
+        "operationId": "exportMyProfileData",
+        "summary": "Export all profile-owned personal data for the authenticated user",
+        "description": "Returns a synchronous machine-readable export. No server-side export artifact is stored.",
+        "security": [{"bearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Complete profile and evidence export",
+            "headers": {
+              "Cache-Control": {
+                "description": "Export responses are never stored by shared or browser caches",
+                "schema": {"type": "string", "example": "no-store"}
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ProfilePersonalDataExport"}
+              }
+            }
+          },
+          "401": {"description": "Missing or invalid access token"}
+        }
+      }
     }
   },
   "components": {
@@ -607,6 +633,37 @@
       }
     },
     "schemas": {
+      "ProfilePersonalDataExport": {
+        "type": "object",
+        "required": [
+          "schemaVersion",
+          "generatedAt",
+          "evidenceEntries",
+          "evidenceSnapshots"
+        ],
+        "properties": {
+          "schemaVersion": {
+            "type": "string",
+            "enum": ["profile-personal-data.v1"]
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "profile": {
+            "nullable": true,
+            "allOf": [{"$ref": "#/components/schemas/UserProfile"}]
+          },
+          "evidenceEntries": {
+            "type": "array",
+            "items": {"$ref": "#/components/schemas/EvidenceEntry"}
+          },
+          "evidenceSnapshots": {
+            "type": "array",
+            "items": {"$ref": "#/components/schemas/EvidenceSnapshot"}
+          }
+        }
+      },
       "UserProfile": {
         "type": "object",
         "properties": {

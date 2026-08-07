@@ -5,7 +5,7 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.Customizer;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -18,6 +18,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
@@ -36,12 +37,15 @@ public class ProfileSecurityConfig {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers("/internal/system-data/**").permitAll()
-                        .requestMatchers("/api/profiles/**").authenticated()
-                        .requestMatchers("/api/evidence/**").authenticated()
-                        .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").authenticated()
+                        .requestMatchers("/internal/account-lifecycle/**")
+                        .hasAuthority(ProfileAuthorities.ACCOUNT_LIFECYCLE)
+                        .requestMatchers("/api/profiles/**", "/api/evidence/**")
+                        .hasAuthority(ProfileAuthorities.USER)
+                        .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html")
+                        .hasAuthority(ProfileAuthorities.USER)
                         .anyRequest().denyAll())
                 .oauth2ResourceServer(resourceServer -> resourceServer
-                        .jwt(Customizer.withDefaults())
+                        .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))
                         .authenticationEntryPoint(authenticationEntryPoint))
                 .exceptionHandling(errors -> errors.authenticationEntryPoint(authenticationEntryPoint))
                 .build();
@@ -59,8 +63,24 @@ public class ProfileSecurityConfig {
         decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
                 JwtValidators.createDefaultWithIssuer(issuer),
                 requiredAudience(audience),
-                requiredAccessToken()));
+                requiredSupportedToken()));
         return decoder;
+    }
+
+    private JwtAuthenticationConverter jwtAuthenticationConverter() {
+        JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
+        converter.setJwtGrantedAuthoritiesConverter(jwt -> {
+            String tokenType = jwt.getClaimAsString("token_type");
+            if ("access".equals(tokenType)) {
+                return List.of(new SimpleGrantedAuthority(ProfileAuthorities.USER));
+            }
+            if (isLifecycleToken(jwt)) {
+                return List.of(new SimpleGrantedAuthority(
+                        ProfileAuthorities.ACCOUNT_LIFECYCLE));
+            }
+            return List.of();
+        });
+        return converter;
     }
 
     private static OAuth2TokenValidator<Jwt> requiredAudience(String audience) {
@@ -69,11 +89,19 @@ public class ProfileSecurityConfig {
                 : invalidToken();
     }
 
-    private static OAuth2TokenValidator<Jwt> requiredAccessToken() {
+    private static OAuth2TokenValidator<Jwt> requiredSupportedToken() {
         return token -> token.getSubject() != null && !token.getSubject().isBlank()
-                        && "access".equals(token.getClaimAsString("token_type"))
+                        && ("access".equals(token.getClaimAsString("token_type"))
+                        || isLifecycleToken(token))
                 ? OAuth2TokenValidatorResult.success()
                 : invalidToken();
+    }
+
+    private static boolean isLifecycleToken(Jwt token) {
+        String operationId = token.getClaimAsString("operation_id");
+        return "account_lifecycle".equals(token.getClaimAsString("token_type"))
+                && operationId != null
+                && !operationId.isBlank();
     }
 
     private static OAuth2TokenValidatorResult invalidToken() {

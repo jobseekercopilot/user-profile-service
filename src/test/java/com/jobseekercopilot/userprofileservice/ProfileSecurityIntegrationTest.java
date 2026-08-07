@@ -113,6 +113,40 @@ class ProfileSecurityIntegrationTest {
     }
 
     @Test
+    void accountLifecycleTokensAreConfinedToDeletionAndExportsAreNoStore() {
+        HttpHeaders access = authenticated(JWKS.validToken("lifecycle-owner"));
+        assertEquals(HttpStatus.OK, put(access, "{\"skills\":[\"Java\"]}").getStatusCode());
+
+        ResponseEntity<Map> export = restTemplate.exchange(
+                "/api/profiles/me/export",
+                HttpMethod.GET,
+                new HttpEntity<>(access),
+                Map.class);
+        assertEquals(HttpStatus.OK, export.getStatusCode(), String.valueOf(export.getBody()));
+        assertTrue(export.getHeaders().getCacheControl().contains("no-store"));
+        assertEquals("profile-personal-data.v1", export.getBody().get("schemaVersion"));
+
+        HttpHeaders lifecycle = authenticated(
+                JWKS.accountLifecycleToken("lifecycle-owner", "operation-123"));
+        assertEquals(HttpStatus.FORBIDDEN, restTemplate.exchange(
+                "/api/profiles/me/export",
+                HttpMethod.GET,
+                new HttpEntity<>(lifecycle),
+                Map.class).getStatusCode());
+        assertEquals(HttpStatus.FORBIDDEN, restTemplate.exchange(
+                "/internal/account-lifecycle/personal-data",
+                HttpMethod.DELETE,
+                new HttpEntity<>(access),
+                Void.class).getStatusCode());
+        assertEquals(HttpStatus.NO_CONTENT, restTemplate.exchange(
+                "/internal/account-lifecycle/personal-data",
+                HttpMethod.DELETE,
+                new HttpEntity<>(lifecycle),
+                Void.class).getStatusCode());
+        assertTrue(repository.findByUserId("lifecycle-owner").isEmpty());
+    }
+
+    @Test
     void profileRevisionRejectsStaleWritesAndKeepsMissingPreferencesUnset() {
         HttpHeaders headers = authenticated(JWKS.validToken("revision-owner"));
         ResponseEntity<Map> created = put(headers, "{\"skills\":[\"Java\"]}");
