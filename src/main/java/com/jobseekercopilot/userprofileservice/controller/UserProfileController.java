@@ -106,8 +106,8 @@ public class UserProfileController {
 
     @PatchMapping(value = "/me", consumes = "application/json", produces = "application/json")
     @Operation(
-            summary = "Update current profile preferences",
-            description = "Updates only current intentions and work preferences while preserving historical profile fields.")
+            summary = "Update job-search preferences and canonical reusable skills",
+            description = "Updates job-search preferences and canonical reusable skills while preserving historical roles, qualifications, and Evidence Library records. Omitting skills or sending null preserves the existing canonical skills; sending an empty array clears them.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Preferences saved"),
             @ApiResponse(responseCode = "400", description = "Invalid preferences"),

@@ -2,6 +2,7 @@ package com.jobseekercopilot.userprofileservice.service;
 
 import com.jobseekercopilot.userprofileservice.model.UserProfile;
 import com.jobseekercopilot.userprofileservice.model.Aspirations;
+import com.jobseekercopilot.userprofileservice.model.ProfilePreferencesUpdate;
 import com.jobseekercopilot.userprofileservice.model.WorkPreferences;
 import com.jobseekercopilot.userprofileservice.exception.ProfileWriteConflictException;
 import com.jobseekercopilot.userprofileservice.exception.ProfileRevisionConflictException;
@@ -203,5 +204,57 @@ class UserProfileServiceTest {
         assertThrows(ProfileWriteConflictException.class,
                 () -> userProfileService.createOrUpdateProfile("user-123", profile));
         verify(userProfileRepository, never()).save(any());
+    }
+
+    @Test
+    void updatePreferences_ShouldPreserveExistingSkills_WhenSkillsAreOmitted() {
+        UserProfile existingProfile = profileWithSkills("user-123", List.of("Java", "Spring Boot"));
+        ProfilePreferencesUpdate update = new ProfilePreferencesUpdate();
+        when(userProfileRepository.findByUserId("user-123"))
+                .thenReturn(Optional.of(existingProfile));
+        when(userProfileRepository.save(existingProfile)).thenReturn(existingProfile);
+
+        UserProfile result = userProfileService.updatePreferences("user-123", update, 3L);
+
+        assertEquals(List.of("Java", "Spring Boot"), result.getSkills());
+        verify(userProfileRepository).save(existingProfile);
+    }
+
+    @Test
+    void updatePreferences_ShouldClearExistingSkills_WhenSkillsAreExplicitlyEmpty() {
+        UserProfile existingProfile = profileWithSkills("user-123", List.of("Java", "Spring Boot"));
+        ProfilePreferencesUpdate update = new ProfilePreferencesUpdate();
+        update.setSkills(List.of());
+        when(userProfileRepository.findByUserId("user-123"))
+                .thenReturn(Optional.of(existingProfile));
+        when(userProfileRepository.save(existingProfile)).thenReturn(existingProfile);
+
+        UserProfile result = userProfileService.updatePreferences("user-123", update, 3L);
+
+        assertTrue(result.getSkills().isEmpty());
+        verify(userProfileRepository).save(existingProfile);
+    }
+
+    @Test
+    void updatePreferences_ShouldInitialiseEmptySkills_WhenCreatingWithoutSkills() {
+        ProfilePreferencesUpdate update = new ProfilePreferencesUpdate();
+        when(userProfileRepository.findByUserId("user-123")).thenReturn(Optional.empty());
+        when(userProfileRepository.save(any(UserProfile.class))).thenAnswer(i -> i.getArgument(0));
+
+        UserProfile result = userProfileService.updatePreferences("user-123", update, 0L);
+
+        assertNotNull(result.getSkills());
+        assertTrue(result.getSkills().isEmpty());
+        verify(userProfileRepository).save(result);
+    }
+
+    private UserProfile profileWithSkills(String userId, List<String> skills) {
+        UserProfile profile = new UserProfile();
+        profile.setId(1L);
+        profile.setUserId(userId);
+        profile.setRevision(3L);
+        profile.setContentDigest("a".repeat(64));
+        profile.setSkills(skills);
+        return profile;
     }
 }

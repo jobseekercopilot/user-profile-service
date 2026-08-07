@@ -115,18 +115,20 @@ public class UserProfileService {
             throw new ProfileValidationException(
                     "preferences", "NOT_NULL", "Profile preferences cannot be null");
         }
+        boolean replaceSkills = update.getSkills() != null;
         UserProfile normalized = new UserProfile();
         normalized.setSkills(update.getSkills());
         normalized.setAspirations(update.getAspirations());
         normalized.setWorkPreferences(update.getWorkPreferences());
         profileNormalizer.normalize(normalized);
         return profileWriteCoordinator.execute(userId, () -> profileRepositoryUpdatePreferences(
-                userId, normalized, expectedRevision));
+                userId, normalized, replaceSkills, expectedRevision));
     }
 
     private UserProfile profileRepositoryUpdatePreferences(
             String userId,
             UserProfile preferences,
+            boolean replaceSkills,
             Long expectedRevision) {
         return userProfileRepository.findByUserId(userId)
                 .map(existing -> {
@@ -136,7 +138,9 @@ public class UserProfileService {
                     String previousDigest = existing.getContentDigest() == null
                             ? profileDigestCalculator.digest(existing)
                             : existing.getContentDigest();
-                    existing.setSkills(preferences.getSkills());
+                    if (replaceSkills) {
+                        existing.setSkills(preferences.getSkills());
+                    }
                     existing.setAspirations(preferences.getAspirations());
                     existing.setWorkPreferences(preferences.getWorkPreferences());
                     String updatedDigest = profileDigestCalculator.digest(existing);
@@ -152,6 +156,9 @@ public class UserProfileService {
                         throw new ProfileRevisionConflictException();
                     }
                     preferences.setUserId(userId);
+                    if (!replaceSkills) {
+                        preferences.setSkills(new ArrayList<>());
+                    }
                     preferences.setQualifications(new ArrayList<>());
                     preferences.setRoles(new ArrayList<>());
                     preferences.setRevision(1L);
