@@ -202,6 +202,7 @@ class ProfileSecurityIntegrationTest {
         HttpHeaders owner = authenticated(JWKS.validToken("progressive-owner"));
         String legacy = """
                 {
+                  "skills": ["Java"],
                   "roles": [{
                     "jobTitle": "Analyst",
                     "employer": "Employer",
@@ -227,7 +228,6 @@ class ProfileSecurityIntegrationTest {
                 HttpMethod.PATCH,
                 new HttpEntity<>("""
                         {
-                          "skills": ["Java"],
                           "aspirations": {"targetRoles": ["Platform Engineer"]},
                           "workPreferences": {
                             "employmentTypes": ["PERMANENT"],
@@ -241,6 +241,7 @@ class ProfileSecurityIntegrationTest {
 
         assertEquals(HttpStatus.OK, updated.getStatusCode(), String.valueOf(updated.getBody()));
         assertEquals(2, updated.getBody().get("revision"));
+        assertEquals(List.of("Java"), updated.getBody().get("skills"));
         assertEquals(1, ((List) updated.getBody().get("roles")).size());
         assertEquals(1, ((List) updated.getBody().get("qualifications")).size());
         Map preferences = (Map) updated.getBody().get("workPreferences");

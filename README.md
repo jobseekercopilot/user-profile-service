@@ -36,7 +36,7 @@ the search orchestrator, is defined in the Infrastructure
 
 - `GET /api/profiles/me` with a Bearer access token
 - `PUT /api/profiles/me` with a Bearer access token and optional revision `If-Match`
-- `PATCH /api/profiles/me` to update only current intentions and work preferences
+- `PATCH /api/profiles/me` to update job-search preferences and canonical reusable skills
 - `GET /api/evidence` for the authenticated claimant's versioned Evidence Library
 - `POST /api/evidence` to create a claimant-owned draft
 - `GET /api/evidence/{entryId}` for one owner-scoped evidence entry
@@ -88,6 +88,11 @@ Omitting `If-Match` remains supported during the approved legacy-client
 migration window. An identical normalized update does not create a new
 revision, and omitted preferences remain unset rather than becoming claimant
 declarations.
+
+`PATCH /api/profiles/me` preserves historical roles, qualifications, and
+Evidence Library records while updating job-search preferences and canonical
+reusable skills. Omitting `skills` or sending `null` preserves the existing
+canonical skills; sending an explicit empty array clears them.
 
 Flyway V3 adds the bounded Evidence Library schema without removing legacy
 profile roles or qualifications. Startup migrates those legacy rows into
