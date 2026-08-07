@@ -122,16 +122,24 @@ class EvidenceSnapshotServiceTest {
     }
 
     @Test
+    void acceptsSelectionAtGenerationFactCeiling() {
+        EvidenceEntry entry = eligibleEntry();
+        EvidenceRevision revision = entry.getRevisions().get(0);
+        addFacts(revision, 199);
+        stubOwned(entry);
+        when(snapshotRepository.saveAndFlush(any(EvidenceSnapshot.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        EvidenceSnapshot snapshot = service.create(OWNER, request(ENTRY_ID));
+
+        assertEquals(200, snapshot.getSelections().get(0).getFacts().size());
+    }
+
+    @Test
     void rejectsSelectionWhoseImmutableFactsExceedGenerationCeiling() {
         EvidenceEntry entry = eligibleEntry();
         EvidenceRevision revision = entry.getRevisions().get(0);
-        for (int index = 1; index < 51; index++) {
-            EvidenceFact fact = new EvidenceFact();
-            fact.setFactId("30000000-0000-0000-0000-%012d".formatted(index + 1));
-            fact.setFactType("DEMONSTRATED_SKILL");
-            fact.setFactValue("Skill " + index);
-            revision.addFact(fact);
-        }
+        addFacts(revision, 200);
         stubOwned(entry);
 
         assertThrows(EvidenceConflictException.class, () -> service.create(OWNER, request(ENTRY_ID)));
@@ -227,5 +235,15 @@ class EvidenceSnapshotServiceTest {
         fact.setNumericClaim(false);
         revision.addFact(fact);
         return revision;
+    }
+
+    private void addFacts(EvidenceRevision revision, int count) {
+        for (int index = 1; index <= count; index++) {
+            EvidenceFact fact = new EvidenceFact();
+            fact.setFactId("30000000-0000-0000-0000-%012d".formatted(index + 1));
+            fact.setFactType("DEMONSTRATED_SKILL");
+            fact.setFactValue("Skill " + index);
+            revision.addFact(fact);
+        }
     }
 }

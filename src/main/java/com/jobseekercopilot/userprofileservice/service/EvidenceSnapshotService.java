@@ -25,7 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class EvidenceSnapshotService {
 
-    private static final int MAX_SNAPSHOT_FACTS = 50;
+    private static final int MAX_SNAPSHOT_FACTS = 200;
 
     private final EvidenceSnapshotRepository snapshotRepository;
     private final EvidenceEntryRepository evidenceRepository;
