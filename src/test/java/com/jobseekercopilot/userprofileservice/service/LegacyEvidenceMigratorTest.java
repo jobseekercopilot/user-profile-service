@@ -73,6 +73,9 @@ class LegacyEvidenceMigratorTest {
         assertEquals("Built accessible services",
                 employment.getRevisions().get(0).getResponsibilities());
         assertFalse(employment.getRevisions().get(0).getFacts().isEmpty());
+        assertTrue(employment.getRevisions().get(0).getFacts().stream()
+                .anyMatch(fact -> "END_DATE".equals(fact.getFactType())
+                        && "Present".equals(fact.getFactValue())));
 
         EvidenceEntry qualification = entries.getAllValues().stream()
                 .filter(entry -> entry.getCategory() == EvidenceCategory.QUALIFICATION_TRAINING)

@@ -49,3 +49,37 @@ oversized requests use `MALFORMED_JSON`, `UNSUPPORTED_MEDIA_TYPE` and
 
 Changing a bound or accepted representation requires coordinated review of the
 user-management gateway model and its generated downstream contract.
+
+## Evidence write matrix
+
+All categories require a bounded display `heading`. The browser may derive that
+heading from the category's primary title instead of asking for it twice.
+
+| Category | Minimum beta write | Date semantics |
+|---|---|---|
+| Employment | role, employer | start date plus end date or `ongoing` |
+| Education | course or subject, institution, status | `Completed` uses `issueDate`; `In progress` uses `endDate` as expected completion |
+| Qualification/training | title, issuer, status | `Completed` uses `issueDate` and may have `expiryDate`; `In progress` uses `endDate` as expected completion |
+| Project | description | optional start/end range or `ongoing`; project role is optional |
+| Volunteering | role, organisation, description | optional start/end range or `ongoing` |
+| Freelance | role or service, description | client/context is optional; optional start/end range or `ongoing` |
+| Achievement | description | optional `issueDate` |
+| Career break | heading only | optional start/end range or `ongoing`; a reason is never required or emitted as a fact |
+| Other | description | optional context and start/end range or `ongoing` |
+
+The two completion statuses are exact claimant-facing values: `Completed` and
+`In progress`. A current range rejects an `endDate`; the browser must clear a
+stale value, and the immutable generated fact is `END_DATE=Present`. Start/end
+and issue/expiry pairs reject impossible chronology while allowing honest
+partial-date precision.
+
+Description, responsibilities and achievements writes are limited to 2,000
+characters because they can become grounded facts. Private credential IDs,
+supporting links and career-break reasons remain retained metadata and are not
+facts by default. A new revision may produce at most 50 facts, and a new
+purpose-bound snapshot may contain at most 50 facts across all selections.
+
+Previously stored revisions are immutable and remain readable with their
+original values. The stricter rules apply when a claimant creates, edits or
+confirms a new revision. Legacy qualification status is translated only into
+the newly confirmed revision; the imported source revision is not modified.

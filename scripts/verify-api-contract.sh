@@ -54,6 +54,9 @@ jq -e '
     (.components.schemas.WorkPreferences.properties.noticePeriodDays.maximum == 3650) and
     (.components.schemas.EvidenceWriteRequest.properties.supportingLinks.maxItems == 10) and
     (.components.schemas.EvidenceWriteRequest.properties.supportingLinks.items.pattern == "^https://") and
+    (.components.schemas.EvidenceWriteRequest.properties.description.maxLength == 2000) and
+    (.components.schemas.EvidenceWriteRequest.properties.responsibilities.maxLength == 2000) and
+    (.components.schemas.EvidenceWriteRequest.properties.achievements.maxLength == 2000) and
     (.components.schemas.EvidenceEntry.properties.version.readOnly == true) and
     (.components.schemas.UserProfile.properties.id.readOnly == true) and
     (.components.schemas.UserProfile.properties.userId.readOnly == true) and
@@ -71,6 +74,7 @@ jq -e '
     and (.components.schemas.EvidenceSnapshotPurpose.enum == ["CV", "COVER_LETTER"])
     and (.components.schemas.EvidenceSnapshot.properties.snapshotId.readOnly == true)
     and (.components.schemas.EvidenceSnapshot.properties.createdAt.readOnly == true)
+    and (.components.schemas.EvidenceSnapshotSelection.properties.facts.maxItems == 50)
 ' "$contract" >/dev/null
 
 echo "API contract policy: User Profile OpenAPI source is present, intact and compatible"

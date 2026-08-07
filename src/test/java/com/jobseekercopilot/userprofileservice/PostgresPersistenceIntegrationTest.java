@@ -129,6 +129,19 @@ class PostgresPersistenceIntegrationTest {
     }
 
     @Test
+    void postgresKeepsLegacyNarrativesWhileBoundingGeneratedAndSnapshotFacts() throws SQLException {
+        flyway().migrate();
+
+        try (Connection connection = connection(); Statement statement = connection.createStatement()) {
+            assertEquals(4000, columnLength(statement, "evidence_revision", "description"));
+            assertEquals(4000, columnLength(statement, "evidence_revision", "responsibilities"));
+            assertEquals(4000, columnLength(statement, "evidence_revision", "achievements"));
+            assertEquals(2000, columnLength(statement, "evidence_fact", "fact_value"));
+            assertEquals(2000, columnLength(statement, "evidence_snapshot_fact", "fact_value"));
+        }
+    }
+
+    @Test
     void postgresBackupRestoresProfileAndNestedRowsIntoSeparateDatabase() throws Exception {
         flyway().migrate();
         try (Connection connection = connection(); Statement statement = connection.createStatement()) {
@@ -213,6 +226,19 @@ class PostgresPersistenceIntegrationTest {
                     'idx_evidence_fact_revision'
                   )
                 """)) {
+            assertTrue(result.next());
+            return result.getInt(1);
+        }
+    }
+
+    private int columnLength(Statement statement, String table, String column) throws SQLException {
+        try (ResultSet result = statement.executeQuery("""
+                SELECT character_maximum_length
+                FROM information_schema.columns
+                WHERE table_schema = 'public'
+                  AND table_name = '%s'
+                  AND column_name = '%s'
+                """.formatted(table, column))) {
             assertTrue(result.next());
             return result.getInt(1);
         }

@@ -2,7 +2,9 @@ package com.jobseekercopilot.userprofileservice.service;
 
 import com.jobseekercopilot.userprofileservice.exception.ProfileValidationException;
 import com.jobseekercopilot.userprofileservice.model.evidence.DatePrecision;
+import com.jobseekercopilot.userprofileservice.model.evidence.EvidenceCategory;
 import com.jobseekercopilot.userprofileservice.model.evidence.EvidenceConfirmationState;
+import com.jobseekercopilot.userprofileservice.model.evidence.EvidenceEntry;
 import com.jobseekercopilot.userprofileservice.model.evidence.EvidenceFact;
 import com.jobseekercopilot.userprofileservice.model.evidence.EvidenceRevision;
 import com.jobseekercopilot.userprofileservice.model.evidence.EvidenceRevisionCreator;
@@ -21,6 +23,10 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class EvidenceRequestProcessor {
+
+    static final int MAX_GENERATED_FACTS = 50;
+    static final String COMPLETED = "Completed";
+    static final String IN_PROGRESS = "In progress";
 
     private static final Pattern HTML = Pattern.compile("<\\s*/?\\s*[a-zA-Z][^>]*>");
 
@@ -86,6 +92,7 @@ public class EvidenceRequestProcessor {
         request.setExpiryDate(copy(revision.getExpiryDate()));
         request.setDemonstratedSkills(new ArrayList<>(revision.getDemonstratedSkills()));
         request.setSupportingLinks(new ArrayList<>(revision.getSupportingLinks()));
+        normalizeLegacyRevision(entry, revision, request);
         return request;
     }
 
@@ -126,6 +133,9 @@ public class EvidenceRequestProcessor {
         checkPlainText("privateCredentialIdentifier", request.getPrivateCredentialIdentifier());
         request.getDemonstratedSkills().forEach(value -> checkPlainText("demonstratedSkills", value));
         request.getSupportingLinks().forEach(this::validateLink);
+        checkLength("description", request.getDescription(), 2000);
+        checkLength("responsibilities", request.getResponsibilities(), 2000);
+        checkLength("achievements", request.getAchievements(), 2000);
         validateDate("startDate", request.getStartDate());
         validateDate("endDate", request.getEndDate());
         validateDate("issueDate", request.getIssueDate());
@@ -133,6 +143,10 @@ public class EvidenceRequestProcessor {
         if (request.isOngoing() && request.getEndDate() != null) {
             invalid("endDate", "ONGOING_END_DATE");
         }
+        validateChronology(
+                request.getStartDate(), request.getEndDate(), "endDate", "END_BEFORE_START");
+        validateChronology(
+                request.getIssueDate(), request.getExpiryDate(), "expiryDate", "EXPIRY_BEFORE_ISSUE");
         validateCategory(request);
     }
 
@@ -141,31 +155,96 @@ public class EvidenceRequestProcessor {
             invalid("category", "NOT_NULL");
         }
         switch (request.getCategory()) {
-            case EMPLOYMENT, FREELANCE -> {
+            case EMPLOYMENT -> {
                 require("roleTitle", request.getRoleTitle());
                 require("organisationContext", request.getOrganisationContext());
+                require("startDate", request.getStartDate());
+                requireEndDateOrOngoing(request);
+                rejectDate("issueDate", request.getIssueDate());
+                rejectDate("expiryDate", request.getExpiryDate());
             }
             case EDUCATION -> {
                 require("programmeOrSubject", request.getProgrammeOrSubject());
                 require("institution", request.getInstitution());
+                validateCompletionStatus(request, false);
             }
             case QUALIFICATION_TRAINING -> {
                 require("qualificationTitle", request.getQualificationTitle());
                 require("issuer", request.getIssuer());
+                validateCompletionStatus(request, true);
             }
             case VOLUNTEERING -> {
                 require("roleTitle", request.getRoleTitle());
                 require("organisationContext", request.getOrganisationContext());
+                require("description", request.getDescription());
+                rejectDate("issueDate", request.getIssueDate());
+                rejectDate("expiryDate", request.getExpiryDate());
+            }
+            case FREELANCE -> {
+                require("roleTitle", request.getRoleTitle());
+                require("description", request.getDescription());
+                rejectDate("issueDate", request.getIssueDate());
+                rejectDate("expiryDate", request.getExpiryDate());
+            }
+            case PROJECT -> {
+                require("description", request.getDescription());
+                rejectDate("issueDate", request.getIssueDate());
+                rejectDate("expiryDate", request.getExpiryDate());
             }
             case ACHIEVEMENT -> {
-                if (request.getAchievements() == null && request.getDescription() == null) {
-                    invalid("achievements", "REQUIRED_FOR_CATEGORY");
-                }
+                require("description", request.getDescription());
+                rejectOngoing(request);
+                rejectDate("startDate", request.getStartDate());
+                rejectDate("endDate", request.getEndDate());
+                rejectDate("expiryDate", request.getExpiryDate());
             }
-            case OTHER -> require("description", request.getDescription());
-            case PROJECT, CAREER_BREAK -> {
-                // The bounded common heading is sufficient; category-specific context is optional.
+            case CAREER_BREAK -> {
+                rejectDate("issueDate", request.getIssueDate());
+                rejectDate("expiryDate", request.getExpiryDate());
             }
+            case OTHER -> {
+                require("description", request.getDescription());
+                rejectDate("issueDate", request.getIssueDate());
+                rejectDate("expiryDate", request.getExpiryDate());
+            }
+        }
+    }
+
+    private void validateCompletionStatus(EvidenceWriteRequest request, boolean qualification) {
+        rejectOngoing(request);
+        rejectDate("startDate", request.getStartDate());
+        if (!COMPLETED.equals(request.getResultOrStatus())
+                && !IN_PROGRESS.equals(request.getResultOrStatus())) {
+            invalid("resultOrStatus", "COMPLETION_STATUS_REQUIRED");
+        }
+        if (COMPLETED.equals(request.getResultOrStatus())) {
+            require("issueDate", request.getIssueDate());
+            rejectDate("endDate", request.getEndDate());
+            if (!qualification) {
+                rejectDate("expiryDate", request.getExpiryDate());
+            }
+            return;
+        }
+        require("endDate", request.getEndDate());
+        rejectDate("issueDate", request.getIssueDate());
+        rejectDate("expiryDate", request.getExpiryDate());
+    }
+
+    private void requireEndDateOrOngoing(EvidenceWriteRequest request) {
+        if (!request.isOngoing() && request.getEndDate() == null) {
+            invalid("endDate", "END_DATE_OR_CURRENT_REQUIRED");
+        }
+    }
+
+    private void rejectOngoing(EvidenceWriteRequest request) {
+        if (request.isOngoing()) {
+            invalid("ongoing", "NOT_APPLICABLE_FOR_CATEGORY");
+        }
+    }
+
+    private void rejectDate(String field, PartialDate date) {
+        if (date != null) {
+            invalid(field, "NOT_APPLICABLE_FOR_CATEGORY");
         }
     }
 
@@ -214,13 +293,49 @@ public class EvidenceRequestProcessor {
         }
     }
 
+    private void validateChronology(
+            PartialDate start,
+            PartialDate end,
+            String endField,
+            String violationCode) {
+        if (start == null || end == null) {
+            return;
+        }
+        if (earliest(start).isAfter(latest(end))) {
+            invalid(endField, violationCode);
+        }
+    }
+
+    private LocalDate earliest(PartialDate date) {
+        int month = date.getPrecision() == DatePrecision.YEAR ? 1 : date.getMonth();
+        int day = date.getPrecision() == DatePrecision.DAY ? date.getDay() : 1;
+        return LocalDate.of(date.getYear(), month, day);
+    }
+
+    private LocalDate latest(PartialDate date) {
+        if (date.getPrecision() == DatePrecision.YEAR) {
+            return LocalDate.of(date.getYear(), 12, 31);
+        }
+        if (date.getPrecision() == DatePrecision.MONTH) {
+            LocalDate first = LocalDate.of(date.getYear(), date.getMonth(), 1);
+            return first.withDayOfMonth(first.lengthOfMonth());
+        }
+        return LocalDate.of(date.getYear(), date.getMonth(), date.getDay());
+    }
+
     private void checkPlainText(String field, String value) {
         if (value != null && HTML.matcher(value).find()) {
             invalid(field, "PLAIN_TEXT_ONLY");
         }
     }
 
-    private void require(String field, String value) {
+    private void checkLength(String field, String value, int maximum) {
+        if (value != null && value.length() > maximum) {
+            invalid(field, "SIZE");
+        }
+    }
+
+    private void require(String field, Object value) {
         if (value == null) {
             invalid(field, "REQUIRED_FOR_CATEGORY");
         }
@@ -286,11 +401,15 @@ public class EvidenceRequestProcessor {
         addFact(revision, "RESPONSIBILITIES", request.getResponsibilities());
         addFact(revision, "ACHIEVEMENTS", request.getAchievements());
         addFact(revision, "START_DATE", partialDateValue(request.getStartDate()));
-        addFact(revision, "END_DATE", partialDateValue(request.getEndDate()));
+        addFact(revision, "END_DATE",
+                request.isOngoing() ? "Present" : partialDateValue(request.getEndDate()));
         addFact(revision, "ISSUE_DATE", partialDateValue(request.getIssueDate()));
         addFact(revision, "EXPIRY_DATE", partialDateValue(request.getExpiryDate()));
         request.getDemonstratedSkills().forEach(value -> addFact(revision, "DEMONSTRATED_SKILL", value));
         // Private credential identifiers, career-break reasons and supporting links are not facts by default.
+        if (revision.getFacts().size() > MAX_GENERATED_FACTS) {
+            invalid("demonstratedSkills", "FACT_LIMIT_EXCEEDED");
+        }
     }
 
     private void addFact(EvidenceRevision revision, String type, String value) {
@@ -308,6 +427,31 @@ public class EvidenceRequestProcessor {
         return date == null
                 ? null
                 : new PartialDate(date.getPrecision(), date.getYear(), date.getMonth(), date.getDay());
+    }
+
+    private void normalizeLegacyRevision(
+            EvidenceEntry entry,
+            EvidenceRevision revision,
+            EvidenceWriteRequest request) {
+        if (revision.getCreatedBy() != EvidenceRevisionCreator.LEGACY_MIGRATION) {
+            return;
+        }
+        if (request.isOngoing()) {
+            request.setEndDate(null);
+        }
+        if (entry.getCategory() != EvidenceCategory.QUALIFICATION_TRAINING
+                || request.getResultOrStatus() == null) {
+            return;
+        }
+        String legacyStatus = request.getResultOrStatus().toUpperCase(Locale.ROOT);
+        if (legacyStatus.startsWith("COMPLETED")) {
+            request.setResultOrStatus(COMPLETED);
+            request.setEndDate(null);
+        } else if (legacyStatus.startsWith("IN_PROGRESS")) {
+            request.setResultOrStatus(IN_PROGRESS);
+            request.setIssueDate(null);
+            request.setExpiryDate(null);
+        }
     }
 
     private String partialDateValue(PartialDate date) {

@@ -122,6 +122,24 @@ class EvidenceSnapshotServiceTest {
     }
 
     @Test
+    void rejectsSelectionWhoseImmutableFactsExceedGenerationCeiling() {
+        EvidenceEntry entry = eligibleEntry();
+        EvidenceRevision revision = entry.getRevisions().get(0);
+        for (int index = 1; index < 51; index++) {
+            EvidenceFact fact = new EvidenceFact();
+            fact.setFactId("30000000-0000-0000-0000-%012d".formatted(index + 1));
+            fact.setFactType("DEMONSTRATED_SKILL");
+            fact.setFactValue("Skill " + index);
+            revision.addFact(fact);
+        }
+        stubOwned(entry);
+
+        assertThrows(EvidenceConflictException.class, () -> service.create(OWNER, request(ENTRY_ID)));
+
+        verify(snapshotRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
     void rejectsArchivedSupersededHiddenAndReviewRequiredEvidence() {
         for (EvidenceEntry ineligible : List.of(
                 entry(EvidenceLifecycle.ARCHIVED, EvidenceVisibility.VISIBLE, false),
