@@ -37,6 +37,7 @@ the search orchestrator, is defined in the Infrastructure
 - `GET /api/profiles/me` with a Bearer access token
 - `PUT /api/profiles/me` with a Bearer access token and optional revision `If-Match`
 - `PATCH /api/profiles/me` to update job-search preferences and canonical reusable skills
+- `GET /api/profiles/me/export` for a synchronous, no-store personal-data export
 - `GET /api/evidence` for the authenticated claimant's versioned Evidence Library
 - `POST /api/evidence` to create a claimant-owned draft
 - `GET /api/evidence/{entryId}` for one owner-scoped evidence entry
