@@ -77,7 +77,7 @@ Description, responsibilities and achievements writes are limited to 2,000
 characters because they can become grounded facts. Private credential IDs,
 supporting links and career-break reasons remain retained metadata and are not
 facts by default. A new revision may produce at most 50 facts, and a new
-purpose-bound snapshot may contain at most 50 facts across all selections.
+purpose-bound snapshot may contain at most 200 facts across all selections.
 
 Previously stored revisions are immutable and remain readable with their
 original values. The stricter rules apply when a claimant creates, edits or

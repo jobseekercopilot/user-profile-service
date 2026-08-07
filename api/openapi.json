@@ -1274,7 +1274,7 @@
             "type": "array",
             "minItems": 1,
             "maxItems": 50,
-            "description": "Ordered server-issued evidence entry IDs; fact or revision IDs are not accepted from the browser. The selected revisions may contain at most 50 facts in aggregate.",
+            "description": "Ordered server-issued evidence entry IDs; fact or revision IDs are not accepted from the browser. The selected revisions may contain at most 200 facts in aggregate.",
             "items": {
               "type": "string",
               "format": "uuid"
