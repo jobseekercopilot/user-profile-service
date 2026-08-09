@@ -21,7 +21,7 @@ public class EnvironmentDataGuard {
     public static final String PROFILE = "environment-data";
     public static final String TOKEN_HEADER = "X-Environment-Data-Token";
     private static final int MINIMUM_TOKEN_LENGTH = 32;
-    private static final Set<String> SAFE_ENVIRONMENTS = Set.of("local", "test", "demo");
+    private static final Set<String> SAFE_ENVIRONMENTS = Set.of("local", "test", "demo", "e2e");
     private static final Set<String> PRODUCTION_LIKE_ENVIRONMENTS = Set.of(
             "prod", "production", "stage", "staging", "uat", "preprod", "live");
 
@@ -44,7 +44,7 @@ public class EnvironmentDataGuard {
 
         Set<String> configuredEnvironments = normalize(properties.getAllowedEnvironments());
         if (configuredEnvironments.isEmpty() || !SAFE_ENVIRONMENTS.containsAll(configuredEnvironments)) {
-            throw new IllegalStateException("Environment data allowed environments must be a non-empty subset of local, test and demo.");
+            throw new IllegalStateException("Environment data allowed environments must be a non-empty subset of local, test, demo and e2e.");
         }
 
         Set<String> activeProfiles = activeProfiles();

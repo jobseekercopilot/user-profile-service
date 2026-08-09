@@ -26,6 +26,13 @@ class EnvironmentDataGuardTest {
         assertFalse(guard.hasValidToken(null));
     }
 
+    @Test
+    void acceptsTheIsolatedE2eEnvironment() {
+        EnvironmentDataGuard guard = guard(List.of("e2e"), "e2e", "environment-data");
+
+        assertDoesNotThrow(guard::validateConfiguration);
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"prod", "production", "stage", "staging", "uat", "preprod", "live"})
     void rejectsEveryProductionLikeProfile(String productionProfile) {
