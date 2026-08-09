@@ -1,5 +1,13 @@
 # User Profile Service
 
+## Role in Job Seeker Copilot
+
+| Role | Called by | Calls | Data | Local port |
+|---|---|---|---|---:|
+| Claimant profile, preferences, Evidence Library and immutable snapshot owner | User Management, Job Finder, Document Generation and Reporting | Authentication JWKS | Own PostgreSQL database | 8085 |
+
+See the central [account journey](https://docs.jobseekercopilot.com/journeys/account-authentication/), [document journey](https://docs.jobseekercopilot.com/journeys/documents/), and [data ownership](https://docs.jobseekercopilot.com/data/ownership/).
+
 Spring Boot OAuth2 resource service that creates, retrieves and replaces the
 current authenticated user's job seeker profile. Ownership is derived only from
 the validated access-token `sub` claim.
