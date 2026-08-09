@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component;
 public class ProfileDigestCalculator {
 
     public String digest(UserProfile profile) {
-        StringBuilder canonical = new StringBuilder("profile-v1|");
+        StringBuilder canonical = new StringBuilder("profile-v2|");
         appendList(canonical, profile.getSkills());
 
         Aspirations aspirations = profile.getAspirations();
@@ -29,6 +29,9 @@ public class ProfileDigestCalculator {
             DigestSupport.append(canonical, null);
         } else {
             DigestSupport.append(canonical, preferences.getCommuteRange());
+            appendSorted(canonical, preferences.getCommuteTravelModes());
+            DigestSupport.append(canonical, preferences.getMaximumDrivingMinutes());
+            DigestSupport.append(canonical, preferences.getMaximumTransitMinutes());
             appendSorted(canonical, preferences.getEmploymentTypes());
             appendSorted(canonical, preferences.getWorkingPatterns());
             appendSorted(canonical, preferences.getWorkplaceArrangements());
@@ -43,6 +46,17 @@ public class ProfileDigestCalculator {
                 DigestSupport.append(canonical, location.getAdminDistrict());
                 DigestSupport.append(canonical, location.getLatitude());
                 DigestSupport.append(canonical, location.getLongitude());
+                DigestSupport.append(canonical, location.getLocationId());
+                DigestSupport.append(canonical, location.getDisplayName());
+                DigestSupport.append(canonical, location.getCountryCode());
+                DigestSupport.append(canonical, location.getLocationType());
+                DigestSupport.append(canonical, location.getPrecision());
+                DigestSupport.append(canonical, location.getConfidence());
+                DigestSupport.append(canonical, location.getGooglePlaceId());
+                DigestSupport.append(canonical, location.getPostcodesIoPlaceId());
+                DigestSupport.append(canonical, location.getDisplayNameSource());
+                DigestSupport.append(canonical, location.getPostcodeSource());
+                DigestSupport.append(canonical, location.getCoordinatesSource());
             }
         }
 

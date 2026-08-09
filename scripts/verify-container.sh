@@ -28,15 +28,20 @@ docker run --detach --name "$database_name" --network "$network_name" \
     --env POSTGRES_PASSWORD="$database_password" \
     postgres:17-alpine >/dev/null
 
+database_ready=false
 attempt=0
 while [ "$attempt" -lt 45 ]; do
     if docker exec "$database_name" pg_isready --username user_profile --dbname user_profile >/dev/null 2>&1; then
+        database_ready=true
         break
     fi
     attempt=$((attempt + 1))
     sleep 1
 done
-docker exec "$database_name" pg_isready --username user_profile --dbname user_profile >/dev/null
+if [ "$database_ready" != "true" ]; then
+    docker logs "$database_name" >&2
+    exit 1
+fi
 
 docker run --detach --name "$service_name" --network "$network_name" \
     --read-only --tmpfs /tmp:rw,noexec,nosuid,size=16m \

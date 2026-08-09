@@ -1,7 +1,7 @@
 # Environment-data controls
 
 `/internal/system-data/**` creates, verifies, and deletes synthetic profile
-fixtures. It is for isolated local, automated-test, or demo environments only.
+fixtures. It is for isolated local, automated-test, E2E, or demo environments only.
 It is not an administrative or production API.
 
 ## Fail-closed activation
@@ -10,11 +10,11 @@ All of these conditions are required before the application starts with the
 fixture controller:
 
 1. `environment-data` is an active Spring profile.
-2. Exactly one runtime profile is also active: `local`, `test`, or `demo`.
+2. Exactly one runtime profile is also active: `local`, `test`, `e2e`, or `demo`.
 3. `ENVIRONMENT_DATA_ENABLED=true`.
 4. `ENVIRONMENT_DATA_TOKEN` contains at least 32 characters.
 5. `ENVIRONMENT_DATA_ALLOWED_ENVIRONMENTS`, when overridden, is a non-empty
-   subset of `local,test,demo` and contains the active runtime profile.
+   subset of `local,test,e2e,demo` and contains the active runtime profile.
 
 Without the explicit profile, the controller and authentication filter are not
 beans and the routes do not exist. With the profile but unsafe or ambiguous

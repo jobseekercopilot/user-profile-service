@@ -17,7 +17,7 @@
         <dependency>
             <groupId>com.jobseekercopilot.clients</groupId>
             <artifactId>user-profile-service-client</artifactId>
-            <version>2.1.0-rev.806ed6064d10</version>
+            <version>2.2.0-rev.fce8d0aac12b</version>
         </dependency>
     </dependencies>
 
