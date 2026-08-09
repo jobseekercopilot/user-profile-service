@@ -10,6 +10,7 @@ import com.jobseekercopilot.userprofileservice.model.CanonicalLocationType;
 import com.jobseekercopilot.userprofileservice.model.LocationConfidence;
 import com.jobseekercopilot.userprofileservice.model.LocationPrecision;
 import com.jobseekercopilot.userprofileservice.model.LocationSource;
+import com.jobseekercopilot.userprofileservice.exception.ProfileValidationException;
 import org.springframework.stereotype.Component;
 
 import java.text.Normalizer;
@@ -57,7 +58,19 @@ public class ProfileNormalizer {
                 ? null : location.getCountryCode().strip().toUpperCase(Locale.ROOT));
         location.setGooglePlaceId(normalizeText(location.getGooglePlaceId()));
         location.setPostcodesIoPlaceId(normalizeText(location.getPostcodesIoPlaceId()));
+        rejectRestrictedGoogleContent(location);
         applyLegacyCanonicalDefaults(location);
+    }
+
+    private void rejectRestrictedGoogleContent(PostcodeLocation location) {
+        if (location.getDisplayNameSource() == LocationSource.GOOGLE_PLACES
+                || location.getPostcodeSource() == LocationSource.GOOGLE_PLACES
+                || location.getCoordinatesSource() == LocationSource.GOOGLE_PLACES) {
+            throw new ProfileValidationException(
+                    "workPreferences.location",
+                    "RESTRICTED_PROVIDER_CONTENT",
+                    "Google Maps place content cannot be stored as canonical profile data");
+        }
     }
 
     private void normalisePreferenceCollections(WorkPreferences preferences) {
