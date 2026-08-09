@@ -6,6 +6,10 @@ import com.jobseekercopilot.userprofileservice.model.Qualification;
 import com.jobseekercopilot.userprofileservice.model.Role;
 import com.jobseekercopilot.userprofileservice.model.UserProfile;
 import com.jobseekercopilot.userprofileservice.model.WorkPreferences;
+import com.jobseekercopilot.userprofileservice.model.CanonicalLocationType;
+import com.jobseekercopilot.userprofileservice.model.LocationConfidence;
+import com.jobseekercopilot.userprofileservice.model.LocationPrecision;
+import com.jobseekercopilot.userprofileservice.model.LocationSource;
 import org.springframework.stereotype.Component;
 
 import java.text.Normalizer;
@@ -13,6 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.LinkedHashSet;
 import java.util.Locale;
+import java.util.UUID;
 
 @Component
 public class ProfileNormalizer {
@@ -47,6 +52,12 @@ public class ProfileNormalizer {
         location.setPostcode(normalizePostcode(location.getPostcode()));
         location.setRegion(normalizeText(location.getRegion()));
         location.setAdminDistrict(normalizeText(location.getAdminDistrict()));
+        location.setDisplayName(normalizeText(location.getDisplayName()));
+        location.setCountryCode(location.getCountryCode() == null
+                ? null : location.getCountryCode().strip().toUpperCase(Locale.ROOT));
+        location.setGooglePlaceId(normalizeText(location.getGooglePlaceId()));
+        location.setPostcodesIoPlaceId(normalizeText(location.getPostcodesIoPlaceId()));
+        applyLegacyCanonicalDefaults(location);
     }
 
     private void normalisePreferenceCollections(WorkPreferences preferences) {
@@ -59,6 +70,30 @@ public class ProfileNormalizer {
         preferences.setWorkplaceArrangements(preferences.getWorkplaceArrangements() == null
                 ? new LinkedHashSet<>()
                 : new LinkedHashSet<>(preferences.getWorkplaceArrangements()));
+        preferences.setCommuteTravelModes(preferences.getCommuteTravelModes() == null
+                ? new LinkedHashSet<>()
+                : new LinkedHashSet<>(preferences.getCommuteTravelModes()));
+    }
+
+    private void applyLegacyCanonicalDefaults(PostcodeLocation location) {
+        if (location.getPostcode() == null) {
+            return;
+        }
+        if (location.getLocationId() == null) location.setLocationId(UUID.randomUUID().toString());
+        if (location.getDisplayName() == null) {
+            location.setDisplayName(location.getAdminDistrict() != null
+                    ? location.getAdminDistrict() : location.getRegion());
+        }
+        if (location.getCountryCode() == null) location.setCountryCode("GB");
+        if (location.getLocationType() == null) location.setLocationType(CanonicalLocationType.POSTCODE);
+        if (location.getPrecision() == null) location.setPrecision(LocationPrecision.POSTCODE_CENTROID);
+        if (location.getConfidence() == null) location.setConfidence(LocationConfidence.VERIFIED);
+        if (location.getDisplayNameSource() == null) location.setDisplayNameSource(LocationSource.LEGACY);
+        if (location.getPostcodeSource() == null) location.setPostcodeSource(LocationSource.LEGACY);
+        if (location.getCoordinatesSource() == null
+                && location.getLatitude() != null && location.getLongitude() != null) {
+            location.setCoordinatesSource(LocationSource.LEGACY);
+        }
     }
 
     private void normalize(Qualification qualification) {

@@ -40,6 +40,26 @@ public class WorkPreferences {
 
     @ElementCollection
     @CollectionTable(
+            name = "user_profile_commute_travel_modes",
+            joinColumns = @JoinColumn(name = "user_profile_id"),
+            foreignKey = @ForeignKey(name = "fk_profile_commute_modes_profile"))
+    @Enumerated(EnumType.STRING)
+    @Column(name = "travel_mode", nullable = false, length = 16)
+    @Size(max = 2)
+    private Set<CommuteTravelMode> commuteTravelModes = new LinkedHashSet<>();
+
+    @Min(5)
+    @Max(180)
+    @Column(name = "maximum_driving_minutes")
+    private Integer maximumDrivingMinutes;
+
+    @Min(5)
+    @Max(180)
+    @Column(name = "maximum_transit_minutes")
+    private Integer maximumTransitMinutes;
+
+    @ElementCollection
+    @CollectionTable(
             name = "user_profile_employment_types",
             joinColumns = @JoinColumn(name = "user_profile_id"),
             foreignKey = @ForeignKey(name = "fk_profile_employment_types_profile"))
@@ -80,5 +100,13 @@ public class WorkPreferences {
     @JsonIgnore
     public boolean isAvailabilityConsistent() {
         return availableFrom == null || noticePeriodDays == null;
+    }
+
+    @AssertTrue
+    @JsonIgnore
+    public boolean isCommuteModeConfigurationConsistent() {
+        Set<CommuteTravelMode> modes = commuteTravelModes == null ? Set.of() : commuteTravelModes;
+        return (maximumDrivingMinutes == null || modes.contains(CommuteTravelMode.DRIVE))
+                && (maximumTransitMinutes == null || modes.contains(CommuteTravelMode.TRANSIT));
     }
 }

@@ -34,7 +34,7 @@ public class OpenApiConfig {
                                 - roles: Work history (job title, employer, dates, responsibilities)
                                 - postcodeLocation: Postcode, region, district, coordinates
                                 """)
-                        .version("2.1.0")
+                        .version("2.2.0")
                         .contact(new Contact()
                                 .name("Jobseeker Copilot"))
                         .license(new License()
