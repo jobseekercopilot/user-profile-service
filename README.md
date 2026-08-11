@@ -12,7 +12,9 @@ Spring Boot OAuth2 resource service that creates, retrieves and replaces the
 current authenticated user's job seeker profile. Ownership is derived only from
 the validated access-token `sub` claim.
 
-> Beta status: not beta-ready. See
+> Delivery status: implemented, persisted and exercised for controlled
+> private-beta profile/evidence use; production deployment assurance remains a
+> separate gate. See
 > [the audit](docs/BETA_READINESS_AUDIT.md).
 
 User Profile's role as the owner of subject-scoped search defaults, rather than
