@@ -3,6 +3,8 @@ package com.jobseekercopilot.userprofileservice.service;
 import com.jobseekercopilot.userprofileservice.model.UserProfile;
 import com.jobseekercopilot.userprofileservice.model.Aspirations;
 import com.jobseekercopilot.userprofileservice.model.ProfilePreferencesUpdate;
+import com.jobseekercopilot.userprofileservice.model.ProfessionalContact;
+import com.jobseekercopilot.userprofileservice.model.ProfessionalLink;
 import com.jobseekercopilot.userprofileservice.model.WorkPreferences;
 import com.jobseekercopilot.userprofileservice.exception.ProfileWriteConflictException;
 import com.jobseekercopilot.userprofileservice.exception.ProfileRevisionConflictException;
@@ -146,6 +148,57 @@ class UserProfileServiceTest {
         assertNotNull(result);
         assertEquals(List.of("Kotlin"), result.getSkills());
         verify(userProfileRepository, times(1)).save(existingProfile);
+    }
+
+    @Test
+    void createOrUpdateProfile_PreservesProfessionalContactWhenOmitted() {
+        UserProfile existing = profileWithSkills("user-123", List.of("Java"));
+        ProfessionalContact contact = new ProfessionalContact();
+        contact.setPhone("+44 20 7946 0958");
+        contact.setLinks(List.of(new ProfessionalLink(
+                "Portfolio",
+                "https://portfolio.example.test")));
+        contact.setUserProfile(existing);
+        existing.setProfessionalContact(contact);
+        UserProfile update = new UserProfile();
+        update.setSkills(List.of("Java", "Spring Boot"));
+        when(userProfileRepository.findByUserId("user-123"))
+                .thenReturn(Optional.of(existing));
+        when(userProfileRepository.save(existing)).thenReturn(existing);
+
+        UserProfile result = userProfileService.createOrUpdateProfile(
+                "user-123",
+                update,
+                3L);
+
+        assertEquals("+44 20 7946 0958", result.getProfessionalContact().getPhone());
+        assertEquals(
+                "https://portfolio.example.test",
+                result.getProfessionalContact().getLinks().get(0).getUrl());
+    }
+
+    @Test
+    void updateProfessionalContact_ReplacesOnlyContactAndAdvancesRevision() {
+        UserProfile existing = profileWithSkills("user-123", List.of("Java"));
+        ProfessionalContact replacement = new ProfessionalContact();
+        replacement.setPhone("+44 20 7946 0958");
+        replacement.setLinks(List.of(new ProfessionalLink(
+                "GitHub",
+                "https://github.com/example-developer")));
+        when(userProfileRepository.findByUserId("user-123"))
+                .thenReturn(Optional.of(existing));
+        when(profileDigestCalculator.digest(existing)).thenReturn("b".repeat(64));
+        when(userProfileRepository.save(existing)).thenReturn(existing);
+
+        UserProfile result = userProfileService.updateProfessionalContact(
+                "user-123",
+                replacement,
+                3L);
+
+        assertEquals(List.of("Java"), result.getSkills());
+        assertEquals(4L, result.getRevision());
+        assertEquals("+44 20 7946 0958", result.getProfessionalContact().getPhone());
+        assertSame(existing, result.getProfessionalContact().getUserProfile());
     }
 
     @Test

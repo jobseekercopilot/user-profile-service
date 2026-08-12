@@ -2,6 +2,8 @@ package com.jobseekercopilot.userprofileservice.service;
 
 import com.jobseekercopilot.userprofileservice.model.UserProfile;
 import com.jobseekercopilot.userprofileservice.model.ProfilePreferencesUpdate;
+import com.jobseekercopilot.userprofileservice.model.ProfessionalContact;
+import com.jobseekercopilot.userprofileservice.model.ProfessionalLink;
 import com.jobseekercopilot.userprofileservice.model.Qualification;
 import com.jobseekercopilot.userprofileservice.model.Role;
 import com.jobseekercopilot.userprofileservice.exception.ProfileValidationException;
@@ -107,6 +109,25 @@ public class UserProfileService {
         }
     }
 
+    public UserProfile updateProfessionalContact(
+            String userId,
+            ProfessionalContact contact,
+            Long expectedRevision) {
+        if (contact == null) {
+            throw new ProfileValidationException(
+                    "professionalContact",
+                    "NOT_NULL",
+                    "Professional contact cannot be null");
+        }
+        profileNormalizer.normalize(contact);
+        return profileWriteCoordinator.execute(
+                userId,
+                () -> profileRepositoryUpdateProfessionalContact(
+                        userId,
+                        contact,
+                        expectedRevision));
+    }
+
     public UserProfile updatePreferences(
             String userId,
             ProfilePreferencesUpdate update,
@@ -185,6 +206,11 @@ public class UserProfileService {
                     existingProfile.setSkills(userProfile.getSkills());
                     existingProfile.setAspirations(userProfile.getAspirations());
                     existingProfile.setWorkPreferences(userProfile.getWorkPreferences());
+                    if (userProfile.getProfessionalContact() != null) {
+                        replaceProfessionalContact(
+                                existingProfile,
+                                userProfile.getProfessionalContact());
+                    }
                     replaceQualifications(existingProfile, userProfile.getQualifications());
                     replaceRoles(existingProfile, userProfile.getRoles());
                     String updatedDigest = profileDigestCalculator.digest(existingProfile);
@@ -207,6 +233,7 @@ public class UserProfileService {
                     userProfile.setId(null);
                     userProfile.setRevision(1L);
                     userProfile.setRevisionId(UUID.randomUUID().toString());
+                    attachProfessionalContact(userProfile);
                     replaceQualifications(userProfile, userProfile.getQualifications());
                     replaceRoles(userProfile, userProfile.getRoles());
                     userProfile.setContentDigest(profileDigestCalculator.digest(userProfile));
@@ -215,6 +242,82 @@ public class UserProfileService {
                             (System.nanoTime() - startedAt) / 1_000_000);
                     return saved;
                 });
+    }
+
+    private UserProfile profileRepositoryUpdateProfessionalContact(
+            String userId,
+            ProfessionalContact contact,
+            Long expectedRevision) {
+        return userProfileRepository.findByUserId(userId)
+                .map(existing -> {
+                    if (expectedRevision != null
+                            && !expectedRevision.equals(existing.getRevision())) {
+                        throw new ProfileRevisionConflictException();
+                    }
+                    String previousDigest = existing.getContentDigest() == null
+                            ? profileDigestCalculator.digest(existing)
+                            : existing.getContentDigest();
+                    replaceProfessionalContact(existing, contact);
+                    String updatedDigest = profileDigestCalculator.digest(existing);
+                    if (!updatedDigest.equals(previousDigest)) {
+                        existing.setRevision(existing.getRevision() + 1);
+                        existing.setRevisionId(UUID.randomUUID().toString());
+                    } else if (existing.getRevisionId() == null) {
+                        existing.setRevisionId(UUID.randomUUID().toString());
+                    }
+                    existing.setContentDigest(updatedDigest);
+                    return userProfileRepository.save(existing);
+                })
+                .orElseGet(() -> {
+                    if (expectedRevision != null && expectedRevision != 0) {
+                        throw new ProfileRevisionConflictException();
+                    }
+                    UserProfile profile = new UserProfile();
+                    profile.setUserId(userId);
+                    profile.setSkills(new ArrayList<>());
+                    profile.setQualifications(new ArrayList<>());
+                    profile.setRoles(new ArrayList<>());
+                    profile.setProfessionalContact(contact);
+                    attachProfessionalContact(profile);
+                    profile.setRevision(1L);
+                    profile.setRevisionId(UUID.randomUUID().toString());
+                    profile.setContentDigest(profileDigestCalculator.digest(profile));
+                    return userProfileRepository.save(profile);
+                });
+    }
+
+    private void attachProfessionalContact(UserProfile profile) {
+        ProfessionalContact contact = profile.getProfessionalContact();
+        if (contact == null) {
+            return;
+        }
+        contact.setId(null);
+        contact.setUserProfile(profile);
+        if (contact.getLinks() == null) {
+            contact.setLinks(new ArrayList<>());
+        }
+    }
+
+    private void replaceProfessionalContact(
+            UserProfile profile,
+            ProfessionalContact replacement) {
+        List<ProfessionalLink> links =
+                replacement.getLinks() == null
+                        ? List.of()
+                        : new ArrayList<>(replacement.getLinks());
+        ProfessionalContact target = profile.getProfessionalContact();
+        if (target == null) {
+            target = new ProfessionalContact();
+            target.setUserProfile(profile);
+            profile.setProfessionalContact(target);
+        }
+        target.setPhone(replacement.getPhone());
+        if (target.getLinks() == null) {
+            target.setLinks(new ArrayList<>());
+        } else {
+            target.getLinks().clear();
+        }
+        target.getLinks().addAll(links);
     }
 
     private void replaceQualifications(UserProfile profile, List<Qualification> qualifications) {

@@ -2,6 +2,7 @@ package com.jobseekercopilot.userprofileservice.controller;
 
 import com.jobseekercopilot.userprofileservice.model.UserProfile;
 import com.jobseekercopilot.userprofileservice.model.ProfilePreferencesUpdate;
+import com.jobseekercopilot.userprofileservice.model.ProfessionalContact;
 import com.jobseekercopilot.userprofileservice.service.UserProfileService;
 import com.jobseekercopilot.userprofileservice.exception.ResourceNotFoundException;
 import com.jobseekercopilot.userprofileservice.exception.ProfileWriteConflictException;
@@ -119,6 +120,31 @@ public class UserProfileController {
             @Valid @RequestBody ProfilePreferencesUpdate update) {
         UserProfile saved = userProfileService.updatePreferences(
                 accessToken.getSubject(), update, parseExpectedRevision(ifMatch));
+        return ResponseEntity.ok()
+                .eTag(Long.toString(saved.getRevision()))
+                .body(saved);
+    }
+
+    @PatchMapping(
+            value = "/me/professional-contact",
+            consumes = "application/json",
+            produces = "application/json")
+    @Operation(
+            summary = "Update private professional contact details",
+            description = "Replaces the authenticated owner's explicitly declared phone and labelled HTTPS professional links. Values are never inferred from CV content.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Professional contact saved"),
+            @ApiResponse(responseCode = "400", description = "Invalid professional contact"),
+            @ApiResponse(responseCode = "409", description = "Profile revision conflict")
+    })
+    public ResponseEntity<UserProfile> updateMyProfessionalContact(
+            @AuthenticationPrincipal Jwt accessToken,
+            @RequestHeader(value = HttpHeaders.IF_MATCH, required = false) String ifMatch,
+            @Valid @RequestBody ProfessionalContact contact) {
+        UserProfile saved = userProfileService.updateProfessionalContact(
+                accessToken.getSubject(),
+                contact,
+                parseExpectedRevision(ifMatch));
         return ResponseEntity.ok()
                 .eTag(Long.toString(saved.getRevision()))
                 .body(saved);

@@ -2,6 +2,8 @@ package com.jobseekercopilot.userprofileservice.validation;
 
 import com.jobseekercopilot.userprofileservice.model.Aspirations;
 import com.jobseekercopilot.userprofileservice.model.PostcodeLocation;
+import com.jobseekercopilot.userprofileservice.model.ProfessionalContact;
+import com.jobseekercopilot.userprofileservice.model.ProfessionalLink;
 import com.jobseekercopilot.userprofileservice.model.Qualification;
 import com.jobseekercopilot.userprofileservice.model.Role;
 import com.jobseekercopilot.userprofileservice.model.UserProfile;
@@ -18,6 +20,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.LinkedHashSet;
 import java.util.Locale;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 @Component
@@ -25,6 +29,7 @@ public class ProfileNormalizer {
 
     public void normalize(UserProfile profile) {
         profile.setSkills(normalizeList(profile.getSkills()));
+        normalize(profile.getProfessionalContact());
         normalize(profile.getAspirations());
         normalize(profile.getWorkPreferences());
         if (profile.getQualifications() != null) {
@@ -32,6 +37,46 @@ public class ProfileNormalizer {
         }
         if (profile.getRoles() != null) {
             profile.getRoles().forEach(this::normalize);
+        }
+    }
+
+    public void normalize(ProfessionalContact contact) {
+        if (contact == null) {
+            return;
+        }
+        contact.setPhone(normalizeText(contact.getPhone()));
+        if (contact.getLinks() == null) {
+            contact.setLinks(new ArrayList<>());
+            return;
+        }
+        Set<String> labels = new HashSet<>();
+        Set<String> urls = new HashSet<>();
+        for (int index = 0; index < contact.getLinks().size(); index++) {
+            ProfessionalLink link = contact.getLinks().get(index);
+            if (link == null) {
+                continue;
+            }
+            link.setLabel(normalizeText(link.getLabel()));
+            link.setUrl(normalizeText(link.getUrl()));
+            if (link.getLabel() != null
+                    && !labels.add(link.getLabel().toLowerCase(Locale.ROOT))) {
+                throw new ProfileValidationException(
+                        "professionalContact.links[" + index + "].label",
+                        "DUPLICATE",
+                        "Professional link labels must be unique");
+            }
+            if (link.getUrl() != null && !urls.add(link.getUrl())) {
+                throw new ProfileValidationException(
+                        "professionalContact.links[" + index + "].url",
+                        "DUPLICATE",
+                        "Professional link URLs must be unique");
+            }
+            if (!HttpsUrlValidator.isValidValue(link.getUrl())) {
+                throw new ProfileValidationException(
+                        "professionalContact.links[" + index + "].url",
+                        "HTTPSURL",
+                        "Professional links must use an absolute credential-free HTTPS URL");
+            }
         }
     }
 
