@@ -2,6 +2,8 @@ package com.jobseekercopilot.userprofileservice.service;
 
 import com.jobseekercopilot.userprofileservice.model.Aspirations;
 import com.jobseekercopilot.userprofileservice.model.PostcodeLocation;
+import com.jobseekercopilot.userprofileservice.model.ProfessionalContact;
+import com.jobseekercopilot.userprofileservice.model.ProfessionalLink;
 import com.jobseekercopilot.userprofileservice.model.Qualification;
 import com.jobseekercopilot.userprofileservice.model.Role;
 import com.jobseekercopilot.userprofileservice.model.UserProfile;
@@ -13,8 +15,23 @@ import org.springframework.stereotype.Component;
 public class ProfileDigestCalculator {
 
     public String digest(UserProfile profile) {
-        StringBuilder canonical = new StringBuilder("profile-v2|");
+        StringBuilder canonical = new StringBuilder("profile-v3|");
         appendList(canonical, profile.getSkills());
+
+        ProfessionalContact contact = profile.getProfessionalContact();
+        if (contact == null) {
+            DigestSupport.append(canonical, null);
+        } else {
+            DigestSupport.append(canonical, contact.getPhone());
+            List<ProfessionalLink> links = contact.getLinks();
+            canonical.append(links == null ? -1 : links.size()).append('|');
+            if (links != null) {
+                for (ProfessionalLink link : links) {
+                    DigestSupport.append(canonical, link == null ? null : link.getLabel());
+                    DigestSupport.append(canonical, link == null ? null : link.getUrl());
+                }
+            }
+        }
 
         Aspirations aspirations = profile.getAspirations();
         if (aspirations == null) {

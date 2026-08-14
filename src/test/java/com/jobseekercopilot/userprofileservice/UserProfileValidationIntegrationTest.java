@@ -83,6 +83,94 @@ class UserProfileValidationIntegrationTest {
     }
 
     @Test
+    void storesOnlyAuthenticatedOwnersBoundedProfessionalContact() {
+        ResponseEntity<Map> response = put("contact-owner", """
+                {
+                  "skills": [],
+                  "professionalContact": {
+                    "phone": "  +44 20 7946 0958  ",
+                    "links": [
+                      {"label":"  GitHub  ","url":"  https://github.com/example-developer  "},
+                      {"label":"Portfolio","url":"https://portfolio.example.test"}
+                    ]
+                  }
+                }
+                """);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode(), () -> String.valueOf(response.getBody()));
+        assertEquals("contact-owner", response.getBody().get("userId"));
+        Map<?, ?> contact = (Map<?, ?>) response.getBody().get("professionalContact");
+        assertEquals("+44 20 7946 0958", contact.get("phone"));
+        java.util.List<?> links = (java.util.List<?>) contact.get("links");
+        assertEquals("GitHub", ((Map<?, ?>) links.get(0)).get("label"));
+        assertEquals(
+                "https://github.com/example-developer",
+                ((Map<?, ?>) links.get(0)).get("url"));
+
+        ResponseEntity<Map> otherOwner = put("different-owner", "{\"skills\":[]}");
+        assertEquals(HttpStatus.OK, otherOwner.getStatusCode());
+        assertEquals(null, otherOwner.getBody().get("professionalContact"));
+    }
+
+    @Test
+    void rejectsUnsafeOrUnboundedProfessionalContact() {
+        ResponseEntity<Map> phone = put("phone-user", """
+                {"professionalContact":{"phone":"call-me-maybe","links":[]}}
+                """);
+        assertValidationFailure(phone, "professionalContact.phone", "PATTERN");
+
+        ResponseEntity<Map> link = put("link-user", """
+                {"professionalContact":{"links":[
+                  {"label":"Portfolio","url":"http://portfolio.example.test"}
+                ]}}
+                """);
+        assertValidationFailure(link, "professionalContact.links[0].url", "HTTPSURL");
+
+        ResponseEntity<Map> duplicate = put("duplicate-user", """
+                {"professionalContact":{"links":[
+                  {"label":"GitHub","url":"https://github.com/example-one"},
+                  {"label":" github ","url":"https://github.com/example-two"}
+                ]}}
+                """);
+        assertValidationFailure(
+                duplicate,
+                "professionalContact.links[1].label",
+                "DUPLICATE");
+    }
+
+    @Test
+    void contactOnlyPatchPreservesProfileAndAdvancesRevision() {
+        ResponseEntity<Map> created = put("patch-contact-owner", """
+                {"skills":["Java"],"qualifications":[],"roles":[]}
+                """);
+        assertEquals(HttpStatus.OK, created.getStatusCode());
+        Number initialRevision = (Number) created.getBody().get("revision");
+
+        HttpHeaders patchHeaders = headers("patch-contact-owner");
+        patchHeaders.setIfMatch('"' + initialRevision.toString() + '"');
+        ResponseEntity<Map> patched = restTemplate.exchange(
+                "/api/profiles/me/professional-contact",
+                HttpMethod.PATCH,
+                new HttpEntity<>("""
+                        {
+                          "phone":"+44 20 7946 0958",
+                          "links":[{"label":"GitHub","url":"https://github.com/example-developer"}]
+                        }
+                        """, patchHeaders),
+                Map.class);
+
+        assertEquals(HttpStatus.OK, patched.getStatusCode(), () -> String.valueOf(patched.getBody()));
+        assertEquals(
+                initialRevision.longValue() + 1,
+                ((Number) patched.getBody().get("revision")).longValue());
+        assertEquals(
+                java.util.List.of("Java"),
+                patched.getBody().get("skills"));
+        Map<?, ?> contact = (Map<?, ?>) patched.getBody().get("professionalContact");
+        assertEquals("+44 20 7946 0958", contact.get("phone"));
+    }
+
+    @Test
     void rejectsOversizedAndBlankSkillElementsWithStableFields() {
         String tooManySkills = IntStream.range(0, 101)
                 .mapToObj(index -> "\"skill-" + index + "\"")

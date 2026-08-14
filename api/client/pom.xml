@@ -6,7 +6,7 @@
 
     <groupId>com.jobseekercopilot.clients</groupId>
     <artifactId>user-profile-service-client</artifactId>
-    <version>2.2.0-rev.fce8d0aac12b</version>
+    <version>2.3.0-rev.a880add6e5c7</version>
     <packaging>jar</packaging>
 
     <name>Job Seeker Copilot User Profile API Client</name>
@@ -25,9 +25,9 @@
         <jakarta-validation.version>3.0.2</jakarta-validation.version>
         <jobseekercopilot.contract.repository>jobseekercopilot/user-profile-service</jobseekercopilot.contract.repository>
         <jobseekercopilot.contract.path>api/openapi.json</jobseekercopilot.contract.path>
-        <jobseekercopilot.contract.version>2.2.0</jobseekercopilot.contract.version>
-        <jobseekercopilot.contract.revision>fce8d0aac12b6b6010fa406582c8f69beb9947b2</jobseekercopilot.contract.revision>
-        <jobseekercopilot.contract.sha256>f81c90a801ff877930304417be9bc7cdf2c39b2f2c61dc212b43b1cdf72dba75</jobseekercopilot.contract.sha256>
+        <jobseekercopilot.contract.version>2.3.0</jobseekercopilot.contract.version>
+        <jobseekercopilot.contract.revision>a880add6e5c7106a2f3abec08a147823f88edf20</jobseekercopilot.contract.revision>
+        <jobseekercopilot.contract.sha256>3326ffc4c3f78fbd97325fe071d3848fdb3319ea997571f98cd792619905fc04</jobseekercopilot.contract.sha256>
     </properties>
 
     <dependencyManagement>

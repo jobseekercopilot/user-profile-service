@@ -25,6 +25,8 @@ jq -e '
     (.paths["/api/profiles/me"].get.operationId == "getMyProfile") and
     (.paths["/api/profiles/me"].put.operationId == "createOrUpdateMyProfile") and
     (.paths["/api/profiles/me"].patch.operationId == "updateMyPreferences") and
+    (.paths["/api/profiles/me/professional-contact"].patch.operationId
+        == "updateMyProfessionalContact") and
     (.paths["/api/evidence"].get.operationId == "listEvidence") and
     (.paths["/api/evidence"].post.operationId == "createEvidence") and
     (.paths["/api/evidence/{entryId}"].get.operationId == "getEvidence") and
@@ -40,12 +42,23 @@ jq -e '
     (.paths["/api/profiles/me"].get.security | any(has("bearerAuth"))) and
     (.paths["/api/profiles/me"].put.security | any(has("bearerAuth"))) and
     (.paths["/api/profiles/me"].patch.security | any(has("bearerAuth"))) and
+    (.paths["/api/profiles/me/professional-contact"].patch.security
+        | any(has("bearerAuth"))) and
     (.paths["/api/profiles/me"].put.requestBody.required == true) and
     (.paths["/api/profiles/me"].put.requestBody.content["application/json"].schema["$ref"] == "#/components/schemas/UserProfile") and
     (.components.schemas.UserProfile.properties.skills.maxItems == 100) and
     (.components.schemas.UserProfile.properties.qualifications.maxItems == 50) and
     (.components.schemas.UserProfile.properties.roles.maxItems == 50) and
     (.components.schemas.Aspirations.properties.targetRoles.maxItems == 50) and
+    (.components.schemas.UserProfile.properties.professionalContact["$ref"]
+        == "#/components/schemas/ProfessionalContact") and
+    (.components.schemas.ProfessionalContact.properties.phone.maxLength == 40) and
+    (.components.schemas.ProfessionalContact.properties.links.maxItems == 8) and
+    (.components.schemas.ProfessionalLink.properties.label.minLength == 1) and
+    (.components.schemas.ProfessionalLink.properties.label.maxLength == 40) and
+    (.components.schemas.ProfessionalLink.properties.url.minLength == 9) and
+    (.components.schemas.ProfessionalLink.properties.url.maxLength == 512) and
+    (.components.schemas.ProfessionalLink.properties.url.pattern == "^https://") and
     (.components.schemas.WorkPreferences.properties.commuteRange.minimum == 0) and
     (.components.schemas.WorkPreferences.properties.commuteRange.maximum == 500) and
     (.components.schemas.WorkPreferences.properties.employmentTypes.maxItems == 5) and

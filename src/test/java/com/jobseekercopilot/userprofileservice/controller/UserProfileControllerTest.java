@@ -1,6 +1,7 @@
 package com.jobseekercopilot.userprofileservice.controller;
 
 import com.jobseekercopilot.userprofileservice.model.UserProfile;
+import com.jobseekercopilot.userprofileservice.model.ProfessionalContact;
 import com.jobseekercopilot.userprofileservice.service.UserProfileService;
 import com.jobseekercopilot.userprofileservice.observability.ProfileTelemetry;
 import com.jobseekercopilot.userprofileservice.observability.ProfileTelemetry.OperationType;
@@ -87,6 +88,28 @@ class UserProfileControllerTest {
 
         verify(telemetry).record(
                 eq(OperationType.UPSERT), eq(Outcome.CONFLICT), eq(StatusFamily.CLIENT_ERROR), anyLong());
+    }
+
+    @Test
+    void updateMyProfessionalContactUsesOnlyAuthenticatedOwner() {
+        ProfessionalContact contact = new ProfessionalContact();
+        UserProfile saved = new UserProfile();
+        saved.setUserId("owner-123");
+        saved.setRevision(4L);
+        saved.setProfessionalContact(contact);
+        when(userProfileService.updateProfessionalContact(
+                "owner-123", contact, 3L)).thenReturn(saved);
+
+        ResponseEntity<UserProfile> response =
+                userProfileController.updateMyProfessionalContact(
+                        jwt("owner-123"),
+                        "\"3\"",
+                        contact);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals("\"4\"", response.getHeaders().getETag());
+        verify(userProfileService).updateProfessionalContact(
+                "owner-123", contact, 3L);
     }
 
     private Jwt jwt(String subject) {

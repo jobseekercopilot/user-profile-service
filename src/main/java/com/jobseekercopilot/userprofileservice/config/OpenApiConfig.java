@@ -30,11 +30,12 @@ public class OpenApiConfig {
                                 - skills: List of skills
                                 - aspirations: Target roles and weekly hours preferences
                                 - workPreferences: Location and commute preferences
+                                - professionalContact: Private user-declared phone and labelled HTTPS professional links
                                 - qualifications: Educational qualifications (name, issuing body, status, grade)
                                 - roles: Work history (job title, employer, dates, responsibilities)
                                 - postcodeLocation: Postcode, region, district, coordinates
                                 """)
-                        .version("2.2.0")
+                        .version("2.3.0")
                         .contact(new Contact()
                                 .name("Jobseeker Copilot"))
                         .license(new License()

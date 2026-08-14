@@ -18,6 +18,7 @@ import jakarta.persistence.ForeignKey;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import lombok.AllArgsConstructor;
@@ -78,6 +79,10 @@ public class UserProfile {
     @Valid
     @Embedded
     private WorkPreferences workPreferences;
+
+    @Valid
+    @OneToOne(mappedBy = "userProfile", cascade = CascadeType.ALL, orphanRemoval = true)
+    private ProfessionalContact professionalContact;
 
     @Size(max = ProfileConstraints.MAX_QUALIFICATIONS)
     @OneToMany(mappedBy = "userProfile", cascade = CascadeType.ALL, orphanRemoval = true)

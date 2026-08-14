@@ -47,6 +47,7 @@ the search orchestrator, is defined in the Infrastructure
 - `GET /api/profiles/me` with a Bearer access token
 - `PUT /api/profiles/me` with a Bearer access token and optional revision `If-Match`
 - `PATCH /api/profiles/me` to update job-search preferences and canonical reusable skills
+- `PATCH /api/profiles/me/professional-contact` to replace only private phone and labelled HTTPS professional links
 - `GET /api/profiles/me/export` for a synchronous, no-store personal-data export
 - `GET /api/evidence` for the authenticated claimant's versioned Evidence Library
 - `POST /api/evidence` to create a claimant-owned draft
@@ -104,6 +105,15 @@ declarations.
 Evidence Library records while updating job-search preferences and canonical
 reusable skills. Omitting `skills` or sending `null` preserves the existing
 canonical skills; sending an explicit empty array clears them.
+
+`professionalContact` is an optional owner-scoped part of the profile. It
+contains an optional phone number and at most eight labelled, credential-free
+HTTPS links (for example GitHub or a portfolio). The narrow contact PATCH uses
+the same `If-Match` revision contract as full profile writes. Values are only
+accepted from an explicit authenticated request: the service never guesses or
+extracts them from an uploaded CV. Omitting `professionalContact` from a legacy
+full-profile PUT preserves any existing contact, while an explicit empty
+contact object clears its values.
 
 Flyway V3 adds the bounded Evidence Library schema without removing legacy
 profile roles or qualifications. Startup migrates those legacy rows into

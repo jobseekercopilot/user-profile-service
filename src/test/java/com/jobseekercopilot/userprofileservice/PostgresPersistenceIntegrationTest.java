@@ -33,7 +33,7 @@ class PostgresPersistenceIntegrationTest {
 
     @Test
     void migratesEmptyPostgresAndEnforcesOwnershipAndDomainConstraints() throws SQLException {
-        assertEquals(6, flyway().migrate().migrationsExecuted);
+        assertEquals(7, flyway().migrate().migrationsExecuted);
 
         try (Connection connection = connection(); Statement statement = connection.createStatement()) {
             long profileId = insertProfile(statement, "profile-owner");
@@ -41,6 +41,20 @@ class PostgresPersistenceIntegrationTest {
                     INSERT INTO user_profile_skills (user_profile_id, skill)
                     VALUES (%d, 'Java')
                     """.formatted(profileId));
+            long contactId;
+            try (ResultSet result = statement.executeQuery("""
+                    INSERT INTO profile_professional_contact (user_profile_id, phone)
+                    VALUES (%d, '+44 20 7946 0958')
+                    RETURNING id
+                    """.formatted(profileId))) {
+                assertTrue(result.next());
+                contactId = result.getLong(1);
+            }
+            statement.executeUpdate("""
+                    INSERT INTO profile_professional_link (
+                        professional_contact_id, position, label, link_url
+                    ) VALUES (%d, 0, 'Portfolio', 'https://portfolio.example.test')
+                    """.formatted(contactId));
 
             SQLException duplicateOwner = assertThrows(SQLException.class,
                     () -> insertProfile(statement, "profile-owner"));
@@ -77,6 +91,8 @@ class PostgresPersistenceIntegrationTest {
 
             statement.executeUpdate("DELETE FROM user_profile WHERE id = " + profileId);
             assertEquals(0, count(statement, "user_profile_skills"));
+            assertEquals(0, count(statement, "profile_professional_contact"));
+            assertEquals(0, count(statement, "profile_professional_link"));
         }
     }
 
@@ -111,7 +127,7 @@ class PostgresPersistenceIntegrationTest {
                     """.formatted(profileId));
         }
 
-        assertEquals(5, flyway().migrate().migrationsExecuted);
+        assertEquals(6, flyway().migrate().migrationsExecuted);
         try (Connection connection = connection(); Statement statement = connection.createStatement()) {
             assertEquals(1, count(statement, "user_profile"));
             assertEquals(1, count(statement, "user_profile_skills"));
