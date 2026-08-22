@@ -1,34 +1,195 @@
 package com.jobseekercopilot.userprofileservice.controller;
 
 import com.jobseekercopilot.userprofileservice.model.UserProfile;
+import com.jobseekercopilot.userprofileservice.model.ProfilePreferencesUpdate;
+import com.jobseekercopilot.userprofileservice.model.ProfessionalContact;
 import com.jobseekercopilot.userprofileservice.service.UserProfileService;
 import com.jobseekercopilot.userprofileservice.exception.ResourceNotFoundException;
+import com.jobseekercopilot.userprofileservice.exception.ProfileWriteConflictException;
+import com.jobseekercopilot.userprofileservice.observability.ProfileTelemetry;
+import com.jobseekercopilot.userprofileservice.observability.ProfileTelemetry.OperationType;
+import com.jobseekercopilot.userprofileservice.observability.ProfileTelemetry.Outcome;
+import com.jobseekercopilot.userprofileservice.observability.ProfileTelemetry.StatusFamily;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/profiles")
+@Tag(name = "User Profiles", description = "Endpoints for managing user profiles")
+@SecurityRequirement(name = "bearerAuth")
+@Validated
 public class UserProfileController {
 
     private final UserProfileService userProfileService;
+    private final ProfileTelemetry telemetry;
 
-    public UserProfileController(UserProfileService userProfileService) {
+    public UserProfileController(UserProfileService userProfileService, ProfileTelemetry telemetry) {
         this.userProfileService = userProfileService;
+        this.telemetry = telemetry;
     }
 
-    private static final String USER_ID_HEADER = "X-User-Id";
-
     @GetMapping("/me")
-    public ResponseEntity<UserProfile> getMyProfile(@RequestHeader(USER_ID_HEADER) String userId) {
-        return userProfileService.getProfileByUserId(userId)
-                .map(userProfile -> new ResponseEntity<>(userProfile, HttpStatus.OK))
-                .orElseThrow(() -> new ResourceNotFoundException("User profile not found for userId: " + userId));
+    @Operation(summary = "Get current user profile", description = "Retrieves the profile for the authenticated user")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Profile found",
+                    content = @Content(schema = @Schema(implementation = UserProfile.class))),
+            @ApiResponse(responseCode = "404", description = "Profile not found for the given user ID")
+    })
+    public ResponseEntity<UserProfile> getMyProfile(
+            @AuthenticationPrincipal Jwt accessToken) {
+        String userId = accessToken.getSubject();
+        long startedAt = System.nanoTime();
+        try {
+            var profile = userProfileService.getProfileByUserId(userId);
+            if (profile.isPresent()) {
+                telemetry.record(OperationType.READ, Outcome.SUCCESS, StatusFamily.SUCCESS, System.nanoTime() - startedAt);
+                return ResponseEntity.ok()
+                        .eTag(Long.toString(profile.get().getRevision()))
+                        .body(profile.get());
+            }
+            telemetry.record(OperationType.READ, Outcome.NOT_FOUND, StatusFamily.CLIENT_ERROR, System.nanoTime() - startedAt);
+            throw new ResourceNotFoundException("User profile not found");
+        } catch (ResourceNotFoundException exception) {
+            throw exception;
+        } catch (RuntimeException exception) {
+            telemetry.record(OperationType.READ, Outcome.INTERNAL_ERROR, StatusFamily.SERVER_ERROR, System.nanoTime() - startedAt);
+            throw exception;
+        }
     }
 
     @PutMapping("/me")
-    public ResponseEntity<UserProfile> createOrUpdateMyProfile(@RequestHeader(USER_ID_HEADER) String userId, @RequestBody UserProfile userProfile) {
-        UserProfile savedProfile = userProfileService.createOrUpdateProfile(userId, userProfile);
-        return new ResponseEntity<>(savedProfile, HttpStatus.OK);
+    @Operation(summary = "Create or update user profile", description = "Creates a new profile or updates an existing one for the authenticated user")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Profile saved successfully",
+                    content = @Content(schema = @Schema(implementation = UserProfile.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid profile data"),
+            @ApiResponse(responseCode = "409", description = "Concurrent profile write conflict; retry is safe")
+    })
+    public ResponseEntity<UserProfile> createOrUpdateMyProfile(
+            @AuthenticationPrincipal Jwt accessToken,
+            @RequestHeader(value = HttpHeaders.IF_MATCH, required = false) String ifMatch,
+            @Valid @RequestBody UserProfile userProfile) {
+        String userId = accessToken.getSubject();
+        long startedAt = System.nanoTime();
+        try {
+            UserProfile savedProfile = userProfileService.createOrUpdateProfile(
+                    userId,
+                    userProfile,
+                    parseExpectedRevision(ifMatch));
+            telemetry.record(OperationType.UPSERT, Outcome.SUCCESS, StatusFamily.SUCCESS, System.nanoTime() - startedAt);
+            return ResponseEntity.ok()
+                    .eTag(Long.toString(savedProfile.getRevision()))
+                    .body(savedProfile);
+        } catch (ProfileWriteConflictException exception) {
+            telemetry.record(OperationType.UPSERT, Outcome.CONFLICT, StatusFamily.CLIENT_ERROR, System.nanoTime() - startedAt);
+            throw exception;
+        } catch (IllegalArgumentException exception) {
+            telemetry.record(OperationType.UPSERT, Outcome.INVALID_REQUEST, StatusFamily.CLIENT_ERROR, System.nanoTime() - startedAt);
+            throw exception;
+        } catch (RuntimeException exception) {
+            telemetry.record(OperationType.UPSERT, Outcome.INTERNAL_ERROR, StatusFamily.SERVER_ERROR, System.nanoTime() - startedAt);
+            throw exception;
+        }
+    }
+
+    @PatchMapping(value = "/me", consumes = "application/json", produces = "application/json")
+    @Operation(
+            summary = "Update job-search preferences and canonical reusable skills",
+            description = "Updates job-search preferences and canonical reusable skills while preserving historical roles, qualifications, and Evidence Library records. Omitting skills or sending null preserves the existing canonical skills; sending an empty array clears them.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Preferences saved"),
+            @ApiResponse(responseCode = "400", description = "Invalid preferences"),
+            @ApiResponse(responseCode = "409", description = "Profile revision conflict")
+    })
+    public ResponseEntity<UserProfile> updateMyPreferences(
+            @AuthenticationPrincipal Jwt accessToken,
+            @RequestHeader(value = HttpHeaders.IF_MATCH, required = false) String ifMatch,
+            @Valid @RequestBody ProfilePreferencesUpdate update) {
+        UserProfile saved = userProfileService.updatePreferences(
+                accessToken.getSubject(), update, parseExpectedRevision(ifMatch));
+        return ResponseEntity.ok()
+                .eTag(Long.toString(saved.getRevision()))
+                .body(saved);
+    }
+
+    @PatchMapping(
+            value = "/me/professional-contact",
+            consumes = "application/json",
+            produces = "application/json")
+    @Operation(
+            summary = "Update private professional contact details",
+            description = "Replaces the authenticated owner's explicitly declared phone and labelled HTTPS professional links. Values are never inferred from CV content.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Professional contact saved"),
+            @ApiResponse(responseCode = "400", description = "Invalid professional contact"),
+            @ApiResponse(responseCode = "409", description = "Profile revision conflict")
+    })
+    public ResponseEntity<UserProfile> updateMyProfessionalContact(
+            @AuthenticationPrincipal Jwt accessToken,
+            @RequestHeader(value = HttpHeaders.IF_MATCH, required = false) String ifMatch,
+            @Valid @RequestBody ProfessionalContact contact) {
+        UserProfile saved = userProfileService.updateProfessionalContact(
+                accessToken.getSubject(),
+                contact,
+                parseExpectedRevision(ifMatch));
+        return ResponseEntity.ok()
+                .eTag(Long.toString(saved.getRevision()))
+                .body(saved);
+    }
+
+    ResponseEntity<UserProfile> createOrUpdateMyProfile(Jwt accessToken, UserProfile userProfile) {
+        String userId = accessToken.getSubject();
+        long startedAt = System.nanoTime();
+        try {
+            UserProfile savedProfile = userProfileService.createOrUpdateProfile(userId, userProfile);
+            telemetry.record(OperationType.UPSERT, Outcome.SUCCESS, StatusFamily.SUCCESS, System.nanoTime() - startedAt);
+            return ResponseEntity.ok()
+                    .eTag(Long.toString(savedProfile.getRevision()))
+                    .body(savedProfile);
+        } catch (ProfileWriteConflictException exception) {
+            telemetry.record(OperationType.UPSERT, Outcome.CONFLICT, StatusFamily.CLIENT_ERROR, System.nanoTime() - startedAt);
+            throw exception;
+        } catch (IllegalArgumentException exception) {
+            telemetry.record(OperationType.UPSERT, Outcome.INVALID_REQUEST, StatusFamily.CLIENT_ERROR, System.nanoTime() - startedAt);
+            throw exception;
+        } catch (RuntimeException exception) {
+            telemetry.record(OperationType.UPSERT, Outcome.INTERNAL_ERROR, StatusFamily.SERVER_ERROR, System.nanoTime() - startedAt);
+            throw exception;
+        }
+    }
+
+    private Long parseExpectedRevision(String ifMatch) {
+        if (ifMatch == null || ifMatch.isBlank()) {
+            return null;
+        }
+        String candidate = ifMatch.strip();
+        if (candidate.startsWith("W/")) {
+            throw new IllegalArgumentException("Weak ETags are not supported");
+        }
+        if (candidate.length() >= 2 && candidate.startsWith("\"") && candidate.endsWith("\"")) {
+            candidate = candidate.substring(1, candidate.length() - 1);
+        }
+        try {
+            long revision = Long.parseLong(candidate);
+            if (revision < 0) {
+                throw new IllegalArgumentException("Profile revision cannot be negative");
+            }
+            return revision;
+        } catch (NumberFormatException exception) {
+            throw new IllegalArgumentException("If-Match must contain a profile revision", exception);
+        }
     }
 }

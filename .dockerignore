@@ -1,0 +1,12 @@
+.git
+.github
+.env
+.env.*
+!.env.example
+.idea
+.vscode
+data
+target/*
+!target/user-profile-service-1.0.0.jar
+*.db
+*.log

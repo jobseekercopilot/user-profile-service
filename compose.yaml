@@ -1,0 +1,46 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: user_profile
+      POSTGRES_USER: user_profile
+      POSTGRES_PASSWORD: "${PROFILE_DB_PASSWORD:?Set PROFILE_DB_PASSWORD in a private .env file}"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready --username user_profile --dbname user_profile"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    volumes:
+      - profile-postgres-data:/var/lib/postgresql/data
+
+  user-profile-service:
+    build:
+      context: .
+    ports:
+      - "${PROFILE_PORT:-8085}:8085"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: production
+      PROFILE_DB_URL: jdbc:postgresql://postgres:5432/user_profile
+      PROFILE_DB_USERNAME: user_profile
+      PROFILE_DB_PASSWORD: "${PROFILE_DB_PASSWORD:?Set PROFILE_DB_PASSWORD in a private .env file}"
+      AUTH_JWKS_URI: "${AUTH_JWKS_URI:?Set the authentication-service JWKS URI}"
+      PROFILE_JWT_ISSUER: "${PROFILE_JWT_ISSUER:-job-seeker-copilot-authentication}"
+      PROFILE_JWT_AUDIENCE: "${PROFILE_JWT_AUDIENCE:-job-seeker-copilot-services}"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/container-healthcheck"]
+      interval: 10s
+      timeout: 3s
+      start_period: 20s
+      retries: 6
+    stop_grace_period: 25s
+
+volumes:
+  profile-postgres-data:
